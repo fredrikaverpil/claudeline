@@ -103,3 +103,15 @@ tests.
 - [Create Claude plugins](https://code.claude.com/docs/en/plugins)
 - [Customize your status line](https://code.claude.com/docs/en/statusline)
 - [Costs and context window](https://code.claude.com/docs/en/costs)
+
+### Usage API
+
+The quota bars use `GET https://api.anthropic.com/api/oauth/usage` with an
+`Anthropic-Beta: oauth-2025-04-20` header. This endpoint is undocumented by
+Anthropic and is not part of their public API. It was reverse-engineered from
+Claude Code's own OAuth flow and is used by several third-party projects:
+
+- [JetBrains ClaudeQuotaService](https://github.com/JetBrains/intellij-community/blob/master/plugins/agent-workbench/sessions/src/claude/ClaudeQuotaService.kt)
+- [claude-hud usage-api.ts](https://github.com/jarrodwatts/claude-hud/blob/main/src/usage-api.ts)
+
+Because the endpoint is in beta, it may change or break without notice.
