@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -335,10 +336,10 @@ func readCache() (*usageResponse, error) {
 		return &usage, nil
 	}
 	if !entry.OK && age < cacheTTLFail {
-		return nil, fmt.Errorf("cached failure")
+		return nil, errors.New("cached failure")
 	}
 
-	return nil, fmt.Errorf("cache expired")
+	return nil, errors.New("cache expired")
 }
 
 // writeCache writes usage data to the cache file.
