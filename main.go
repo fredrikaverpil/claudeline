@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -144,7 +145,7 @@ func run() error {
 	// Context bar.
 	contextPct := 0
 	if data.ContextWindow.UsedPercentage != nil {
-		contextPct = int(*data.ContextWindow.UsedPercentage)
+		contextPct = int(math.Round(*data.ContextWindow.UsedPercentage))
 	}
 	// Warn when context is near auto-compaction threshold.
 	compactPct := 85
@@ -171,13 +172,13 @@ func run() error {
 			log.Printf("usage: %v", fetchErr)
 		}
 		if fetchErr == nil && usage != nil {
-			pct5 := int(usage.FiveHour.Utilization)
+			pct5 := int(math.Round(usage.FiveHour.Utilization))
 			usage5h = bar(pct5, quotaColor)
 			if reset := formatLocalTime(usage.FiveHour.ResetsAt, "15:04"); reset != "" {
 				usage5h += " (" + reset + ")"
 			}
 
-			pct7 := int(usage.SevenDay.Utilization)
+			pct7 := int(math.Round(usage.SevenDay.Utilization))
 			usage7d = bar(pct7, quotaColor)
 			if reset := formatLocalTime(usage.SevenDay.ResetsAt, "Mon 15:04"); reset != "" {
 				usage7d += " (" + reset + ")"
