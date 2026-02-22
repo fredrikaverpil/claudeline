@@ -56,6 +56,9 @@ ANSI-colored progress bars. Zero external dependencies (stdlib only).
 The binary reads JSON from stdin (provided by Claude Code) and writes a single
 ANSI-colored line to stdout.
 
+> [!NOTE] The 5-hour and 7-day quota bars require a Claude Code subscription
+> (Pro, Max, or Team). They are not available for free tier or API key users.
+
 ## Architecture
 
 Single-file (`main.go`), single-package (`main`) design.
