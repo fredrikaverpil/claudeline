@@ -3,7 +3,7 @@
 A minimal, opinionated and non-configurable, Claude Code status line.
 
 ```sh
-[Opus 4.6 | Team] │ █░░░░ 18% │ ██░░░ 40% (12:59) │ █░░░░ 27% (Thu 10:00)
+[Opus 4.6 | Team] │ ████░ 80% ⚠ │ ███░░ 74% (13:00) │ █░░░░ 30% (Thu 10:00)
 ```
 
 ## Installation
