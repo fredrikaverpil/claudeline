@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.1](https://github.com/fredrikaverpil/claudeline/compare/v0.1.0...v0.1.1) (2026-02-22)
+
+
+### Bug Fixes
+
+* avoid os.Exit bypassing deferred log file close ([#3](https://github.com/fredrikaverpil/claudeline/issues/3)) ([2608886](https://github.com/fredrikaverpil/claudeline/commit/2608886d9b5b7a52f8650a735460803f0f853ae7))
+* replace fmt.Println with fmt.Fprintln to satisfy forbidigo ([#6](https://github.com/fredrikaverpil/claudeline/issues/6)) ([2ca5b3b](https://github.com/fredrikaverpil/claudeline/commit/2ca5b3b25c9e4e57735a23f39f99c7b5e7df9727))
+* use canonical HTTP header for Anthropic-Beta ([#2](https://github.com/fredrikaverpil/claudeline/issues/2)) ([28ecd45](https://github.com/fredrikaverpil/claudeline/commit/28ecd455c6f1c985935b5b15fc55496c72b79a5c))
+* use errors.New for static error strings ([#4](https://github.com/fredrikaverpil/claudeline/issues/4)) ([c2d1e32](https://github.com/fredrikaverpil/claudeline/commit/c2d1e32d8505431fb76253c7fca700d2a6193870))
+* use http.NewRequestWithContext for proper context propagation ([#5](https://github.com/fredrikaverpil/claudeline/issues/5)) ([c26887f](https://github.com/fredrikaverpil/claudeline/commit/c26887fe825a50849f3a954d23e37005b7d7f25f))
+
 ## 0.1.0 (2026-02-22)
 
 ### Features
