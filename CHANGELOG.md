@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/fredrikaverpil/claudeline/compare/v0.2.2...v0.2.3) (2026-02-22)
+
+
+### Bug Fixes
+
+* use math.Round for context and quota percentage conversions ([#17](https://github.com/fredrikaverpil/claudeline/issues/17)) ([c375091](https://github.com/fredrikaverpil/claudeline/commit/c3750912ccbfc5139b13211062aef2c37de1b96a))
+
 ## [0.2.2](https://github.com/fredrikaverpil/claudeline/compare/v0.2.1...v0.2.2) (2026-02-22)
 
 
