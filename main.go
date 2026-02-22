@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -370,7 +371,7 @@ func writeCache(usage *usageResponse, ok bool) {
 // fetchUsageAPI makes the HTTP request to the usage API.
 func fetchUsageAPI(token string) (*usageResponse, error) {
 	client := &http.Client{Timeout: httpTimeout}
-	req, err := http.NewRequest(http.MethodGet, usageURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, usageURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
