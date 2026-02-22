@@ -111,7 +111,7 @@ func run() error {
 	contextBar := bar(contextPct, contextColor)
 
 	// Warn when context is near auto-compaction threshold.
-	compactPct := 95
+	compactPct := 85
 	if v, err := strconv.Atoi(os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")); err == nil && v > 0 && v <= 100 {
 		compactPct = v
 	}

@@ -76,7 +76,7 @@ Key components:
 - **Progress bars:** 5-char width using `█`/`░` with color thresholds
   (green/yellow/red for context; blue/magenta/red for quota).
 - **Compaction warning:** A yellow `⚠` appears on the context bar when usage
-  is within 5% of the auto-compaction threshold (95% by default, configurable
+  is within 5% of the auto-compaction threshold (85% by default, configurable
   via `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`).
 
 ## References
