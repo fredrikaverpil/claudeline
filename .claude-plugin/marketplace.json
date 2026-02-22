@@ -1,0 +1,20 @@
+{
+  "name": "claude-status-line",
+  "owner": {
+    "name": "Fredrik Averpil",
+    "email": ""
+  },
+  "metadata": {
+    "description": "Minimal statusline for Claude Code",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claude-status-line",
+      "source": "./",
+      "description": "Single-line statusline with model, plan, context bar, and usage bars",
+      "category": "monitoring",
+      "tags": ["statusline", "monitoring", "usage"]
+    }
+  ]
+}
