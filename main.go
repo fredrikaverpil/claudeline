@@ -117,13 +117,13 @@ func run() error {
 		if fetchErr == nil && usage != nil {
 			pct5 := int(usage.FiveHour.Utilization)
 			usage5h = bar(pct5, quotaColor)
-			if reset := formatLocalTime(usage.FiveHour.ResetsAt); reset != "" {
+			if reset := formatLocalTime(usage.FiveHour.ResetsAt, "15:04"); reset != "" {
 				usage5h += " (" + reset + ")"
 			}
 
 			pct7 := int(usage.SevenDay.Utilization)
 			usage7d = bar(pct7, quotaColor)
-			if reset := formatLocalDateTime(usage.SevenDay.ResetsAt); reset != "" {
+			if reset := formatLocalTime(usage.SevenDay.ResetsAt, "Mon 15:04"); reset != "" {
 				usage7d += " (" + reset + ")"
 			}
 		}
@@ -209,8 +209,8 @@ func bar(pct int, colorFn func(int) string) string {
 	)
 }
 
-// formatLocalTime parses an ISO 8601 timestamp and returns the local time in 24h format ("15:04").
-func formatLocalTime(iso string) string {
+// formatLocalTime parses an ISO 8601 timestamp and formats it in the local timezone.
+func formatLocalTime(iso, layout string) string {
 	if iso == "" {
 		return ""
 	}
@@ -218,19 +218,7 @@ func formatLocalTime(iso string) string {
 	if err != nil {
 		return ""
 	}
-	return target.Local().Format("15:04")
-}
-
-// formatLocalDateTime parses an ISO 8601 timestamp and returns the local day and time ("Mon 15:04").
-func formatLocalDateTime(iso string) string {
-	if iso == "" {
-		return ""
-	}
-	target, err := time.Parse(time.RFC3339, iso)
-	if err != nil {
-		return ""
-	}
-	return target.Local().Format("Mon 15:04")
+	return target.Local().Format(layout)
 }
 
 
