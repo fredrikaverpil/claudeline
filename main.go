@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	runtimedebug "runtime/debug"
 	"strconv"
 	"strings"
@@ -306,16 +307,18 @@ func cacheFilePath() string {
 // readCredentials reads OAuth credentials from keychain or file.
 func readCredentials() (credentials, error) {
 	// Try macOS keychain first.
-	out, err := exec.Command(
-		"/usr/bin/security", "find-generic-password",
-		"-s", keychainServiceName(), "-w",
-	).Output()
-	if err == nil {
-		var creds credentials
-		if err := json.Unmarshal(out, &creds); err != nil {
-			return credentials{}, fmt.Errorf("parse keychain credentials: %w", err)
+	if runtime.GOOS == "darwin" {
+		out, err := exec.Command(
+			"/usr/bin/security", "find-generic-password",
+			"-s", keychainServiceName(), "-w",
+		).Output()
+		if err == nil {
+			var creds credentials
+			if err := json.Unmarshal(out, &creds); err != nil {
+				return credentials{}, fmt.Errorf("parse keychain credentials: %w", err)
+			}
+			return creds, nil
 		}
-		return creds, nil
 	}
 
 	// File fallback.
