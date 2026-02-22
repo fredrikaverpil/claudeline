@@ -45,7 +45,9 @@ go install github.com/fredrikaverpil/claudeline@latest
 
 3. Restart Claude Code
 
-> [!NOTE] If you have a custom `$GOPATH`, replace `~/go/bin` with `$GOPATH/bin`.
+> [!NOTE]
+>
+> If you have a custom `$GOPATH`, replace `~/go/bin` with `$GOPATH/bin`.
 
 ## About
 
@@ -56,8 +58,10 @@ ANSI-colored progress bars. Zero external dependencies (stdlib only).
 The binary reads JSON from stdin (provided by Claude Code) and writes a single
 ANSI-colored line to stdout.
 
-> [!NOTE] The 5-hour and 7-day quota bars require a Claude Code subscription
-> (Pro, Max, or Team). They are not available for free tier or API key users.
+> [!NOTE]
+>
+> The 5-hour and 7-day quota bars require a Claude Code subscription (Pro, Max,
+> or Team). They are not available for free tier or API key users.
 
 ## Architecture
 
@@ -89,7 +93,8 @@ Key components:
 ## Development
 
 This project uses [Pocket](https://github.com/fredrikaverpil/pocket), a
-Makefile-like task runner. Run `./pok` to execute linting, formatting, and tests.
+Makefile-like task runner. Run `./pok` to execute linting, formatting, and
+tests.
 
 ## References
 
