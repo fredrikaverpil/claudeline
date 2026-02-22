@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -108,6 +109,15 @@ func run() error {
 		contextPct = int(*data.ContextWindow.UsedPercentage)
 	}
 	contextBar := bar(contextPct, contextColor)
+
+	// Warn when context is near auto-compaction threshold.
+	compactPct := 95
+	if v, err := strconv.Atoi(os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")); err == nil && v > 0 && v <= 100 {
+		compactPct = v
+	}
+	if contextPct >= compactPct-5 {
+		contextBar += " " + yellow + "⚠" + ansiReset
+	}
 
 	// Usage bars.
 	var usage5h, usage7d string

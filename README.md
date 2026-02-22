@@ -83,3 +83,4 @@ Key components:
 - [claude-hud](https://github.com/jarrodwatts/claude-hud) — inspiration for this project
 - [Create Claude plugins](https://code.claude.com/docs/en/plugins)
 - [Customize your status line](https://code.claude.com/docs/en/statusline)
+- [Costs and context window](https://code.claude.com/docs/en/costs)
