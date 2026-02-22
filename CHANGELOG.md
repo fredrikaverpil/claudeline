@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/fredrikaverpil/claudeline/compare/v0.2.0...v0.2.1) (2026-02-22)
+
+
+### Bug Fixes
+
+* use os.TempDir() instead of hardcoded /tmp for cross-platform support ([#12](https://github.com/fredrikaverpil/claudeline/issues/12)) ([4f22f7c](https://github.com/fredrikaverpil/claudeline/commit/4f22f7c47224059d2fa84f2d72ad1eaaa5d1a5d5))
+* use profile-specific cache file path when CLAUDE_CONFIG_DIR is set ([#10](https://github.com/fredrikaverpil/claudeline/issues/10)) ([476eade](https://github.com/fredrikaverpil/claudeline/commit/476eadecc2466179823604f8d7e4423ba07b3b0d))
+
 ## [0.2.0](https://github.com/fredrikaverpil/claudeline/compare/v0.1.1...v0.2.0) (2026-02-22)
 
 
