@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/fredrikaverpil/claudeline/compare/v0.2.1...v0.2.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* guard macOS keychain lookup with runtime.GOOS check ([#14](https://github.com/fredrikaverpil/claudeline/issues/14)) ([288533e](https://github.com/fredrikaverpil/claudeline/commit/288533eb01912065de39627cdc695a4f803bb07b))
+
 ## [0.2.1](https://github.com/fredrikaverpil/claudeline/compare/v0.2.0...v0.2.1) (2026-02-22)
 
 
