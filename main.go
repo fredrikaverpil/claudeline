@@ -308,9 +308,10 @@ func cacheFilePath() string {
 func readCredentials() (credentials, error) {
 	// Try macOS keychain first.
 	if runtime.GOOS == "darwin" {
+		serviceName := keychainServiceName()
 		out, err := exec.Command(
 			"/usr/bin/security", "find-generic-password",
-			"-s", keychainServiceName(), "-w",
+			"-s", serviceName, "-w",
 		).Output()
 		if err == nil {
 			var creds credentials
