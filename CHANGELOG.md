@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/fredrikaverpil/claudeline/compare/v0.1.1...v0.2.0) (2026-02-22)
+
+
+### Features
+
+* add -version flag ([#8](https://github.com/fredrikaverpil/claudeline/issues/8)) ([53a2b80](https://github.com/fredrikaverpil/claudeline/commit/53a2b802f0d5ce0ab14f4c9fcea3e5d1726f0451))
+
 ## [0.1.1](https://github.com/fredrikaverpil/claudeline/compare/v0.1.0...v0.1.1) (2026-02-22)
 
 
