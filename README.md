@@ -22,7 +22,7 @@ A minimal, opinionated and non-configurable, Claude Code status line.
 /plugin install claudemeter@claudemeter
 ```
 
-2. Run `/setup` inside Claude Code
+2. Run `/claudemeter:setup` inside Claude Code
 3. Restart Claude Code
 
 ### Manual
