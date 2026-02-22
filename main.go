@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	runtimedebug "runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -82,8 +83,18 @@ func main() {
 }
 
 func runMain() int {
+	version := flag.Bool("version", false, "print version and exit")
 	debug := flag.Bool("debug", false, "write warnings and errors to "+debugLogFile)
 	flag.Parse()
+
+	if *version {
+		if info, ok := runtimedebug.ReadBuildInfo(); ok {
+			if _, err := fmt.Fprintln(os.Stdout, info.Main.Version); err != nil {
+				return 1
+			}
+		}
+		return 0
+	}
 
 	log.SetPrefix("claudeline: ")
 	log.SetFlags(log.Ldate | log.Ltime)
