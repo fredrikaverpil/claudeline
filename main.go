@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"context"
 	"encoding/json"
 	"errors"
@@ -31,7 +32,6 @@ const (
 )
 
 const (
-	cacheFile    = "/tmp/claudeline-usage.json"
 	cacheTTLOK   = 60 * time.Second
 	cacheTTLFail = 15 * time.Second
 	usageURL     = "https://api.anthropic.com/api/oauth/usage"
@@ -279,12 +279,36 @@ func formatLocalTime(iso, layout string) string {
 	return target.Local().Format(layout)
 }
 
+// keychainServiceName returns the macOS Keychain service name used by Claude Code.
+// When CLAUDE_CONFIG_DIR is set, Claude Code appends a hash suffix to the service name.
+func keychainServiceName() string {
+	const base = "Claude Code-credentials"
+	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if configDir == "" {
+		return base
+	}
+	h := sha256.Sum256([]byte(configDir))
+	return fmt.Sprintf("%s-%x", base, h[:4])
+}
+
+// cacheFilePath returns the file path for the usage cache.
+// When CLAUDE_CONFIG_DIR is set, a hash suffix is appended to avoid collisions between profiles.
+func cacheFilePath() string {
+	const base = "/tmp/claudeline-usage"
+	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if configDir == "" {
+		return base + ".json"
+	}
+	h := sha256.Sum256([]byte(configDir))
+	return fmt.Sprintf("%s-%x.json", base, h[:4])
+}
+
 // readCredentials reads OAuth credentials from keychain or file.
 func readCredentials() (credentials, error) {
 	// Try macOS keychain first.
 	out, err := exec.Command(
 		"/usr/bin/security", "find-generic-password",
-		"-s", "Claude Code-credentials", "-w",
+		"-s", keychainServiceName(), "-w",
 	).Output()
 	if err == nil {
 		var creds credentials
@@ -334,7 +358,7 @@ func fetchUsage(token string) (*usageResponse, error) {
 
 // readCache reads and validates the cached usage data.
 func readCache() (*usageResponse, error) {
-	data, err := os.ReadFile(cacheFile)
+	data, err := os.ReadFile(cacheFilePath())
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +400,7 @@ func writeCache(usage *usageResponse, ok bool) {
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(cacheFile, data, 0o600)
+	_ = os.WriteFile(cacheFilePath(), data, 0o600)
 }
 
 // fetchUsageAPI makes the HTTP request to the usage API.
