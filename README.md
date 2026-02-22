@@ -86,6 +86,11 @@ Key components:
   `claudeline -debug`, then `tail -f /tmp/claudeline-debug.log` in another
   terminal.
 
+## Development
+
+This project uses [Pocket](https://github.com/fredrikaverpil/pocket), a
+Makefile-like task runner. Run `./pok` to execute linting, formatting, and tests.
+
 ## References
 
 - [claude-hud](https://github.com/jarrodwatts/claude-hud) — inspiration for this
