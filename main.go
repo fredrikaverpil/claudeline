@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -106,7 +105,7 @@ func run() error {
 	// Context bar.
 	contextPct := 0
 	if data.ContextWindow.UsedPercentage != nil {
-		contextPct = int(math.Round(*data.ContextWindow.UsedPercentage))
+		contextPct = int(*data.ContextWindow.UsedPercentage)
 	}
 	contextBar := bar(contextPct, contextColor)
 
@@ -197,12 +196,7 @@ func quotaColor(pct int) string {
 
 // bar renders a 10-char progress bar with ANSI colors.
 func bar(pct int, colorFn func(int) string) string {
-	if pct < 0 {
-		pct = 0
-	}
-	if pct > 100 {
-		pct = 100
-	}
+	pct = max(0, min(100, pct))
 	filled := pct / barWidth
 	empty := barWidth - filled
 	color := colorFn(pct)
