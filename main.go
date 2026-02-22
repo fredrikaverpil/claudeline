@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -259,11 +260,15 @@ func readCredentials() (credentials, error) {
 	}
 
 	// File fallback.
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return credentials{}, fmt.Errorf("get home dir: %w", err)
+	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if configDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return credentials{}, fmt.Errorf("get home dir: %w", err)
+		}
+		configDir = filepath.Join(home, ".claude")
 	}
-	data, err := os.ReadFile(filepath.Join(home, ".claude", ".credentials.json"))
+	data, err := os.ReadFile(filepath.Join(configDir, ".credentials.json"))
 	if err != nil {
 		return credentials{}, fmt.Errorf("read credentials file: %w", err)
 	}
