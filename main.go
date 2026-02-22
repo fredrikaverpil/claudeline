@@ -194,10 +194,10 @@ func quotaColor(pct int) string {
 	}
 }
 
-// bar renders a 10-char progress bar with ANSI colors.
+// bar renders a progress bar with ANSI colors.
 func bar(pct int, colorFn func(int) string) string {
 	pct = max(0, min(100, pct))
-	filled := pct / barWidth
+	filled := pct * barWidth / 100
 	empty := barWidth - filled
 	color := colorFn(pct)
 
