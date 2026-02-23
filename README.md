@@ -1,17 +1,17 @@
 # claudeline
 
-A minimal, opinionated and non-configurable, Claude Code status line.
+A minimalistic and opinionated Claude Code status line.
 
-```sh
-[Opus 4.6 | Team] │ ████░ 80% ⚠ │ ███░░ 74% (13:00) │ █░░░░ 30% (Thu 10:00)
-```
+<img width="657" height="147" alt="claudeline" src="https://github.com/user-attachments/assets/5e520190-1d0f-4a61-9694-62e87d3410a4" />
 
+It displays the current Anthropic model, subscription plan, context window
+usage, and 5-hour/7-day quota usage as ANSI-colored progress bars. A Claude Code
+statusline plugin written in Go with no external dependencies (stdlib only).
 
-
-## Screenshot
-
-<img width="707" height="161" alt="claudeline" src="https://github.com/user-attachments/assets/b14abd16-6661-4dab-9db7-ddc91d8fdadb" /><br>
-_[ model | subscription type ] | context usage % | 5hr usage % (reset time) | 7d usage % (reset time)_
+> [!NOTE]
+>
+> The 5-hour and 7-day quota bars require a Claude Code subscription (Pro, Max,
+> or Team). They are not available for free tier or API key users.
 
 ## Installation
 
@@ -57,18 +57,6 @@ go install github.com/fredrikaverpil/claudeline@latest
 > If you have a custom `$GOPATH`, replace `~/go/bin` with `$GOPATH/bin`.
 
 ## About
-
-A Claude Code statusline plugin written in Go. It displays the current AI model,
-subscription plan, context window usage, and 5-hour/7-day quota usage as
-ANSI-colored progress bars. Zero external dependencies (stdlib only).
-
-The binary reads JSON from stdin (provided by Claude Code) and writes a single
-ANSI-colored line to stdout.
-
-> [!NOTE]
->
-> The 5-hour and 7-day quota bars require a Claude Code subscription (Pro, Max,
-> or Team). They are not available for free tier or API key users.
 
 ## Architecture
 
