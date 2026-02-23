@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -91,5 +93,68 @@ func TestKeychainServiceName(t *testing.T) {
 				t.Errorf("keychainServiceName() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCompactBranch(t *testing.T) {
+	tests := []struct {
+		name   string
+		branch string
+		maxLen int
+		want   string
+	}{
+		{
+			name:   "short name unchanged",
+			branch: "main",
+			maxLen: 30,
+			want:   "main",
+		},
+		{
+			name:   "exactly at limit",
+			branch: strings.Repeat("a", 30),
+			maxLen: 30,
+			want:   strings.Repeat("a", 30),
+		},
+		{
+			name:   "truncated with ellipsis",
+			branch: "backup/feat-support-claudeline-progress-tracker",
+			maxLen: 30,
+			want:   "backup/feat-su…rogress-tracker",
+		},
+		{
+			name:   "empty string",
+			branch: "",
+			maxLen: 30,
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := compactBranch(tt.branch, tt.maxLen)
+			if got != tt.want {
+				t.Errorf("compactBranch(%q, %d) = %q, want %q", tt.branch, tt.maxLen, got, tt.want)
+			}
+			if len([]rune(got)) > tt.maxLen {
+				t.Errorf("compactBranch(%q, %d) rune length = %d, exceeds maxLen", tt.branch, tt.maxLen, len([]rune(got)))
+			}
+		})
+	}
+}
+
+func TestGetBranch(t *testing.T) {
+	// In this repo, getBranch should return a non-empty branch name.
+	branch := getBranch()
+	if branch == "" {
+		t.Fatal("getBranch() returned empty string, expected a branch name")
+	}
+	// Verify it matches git output directly.
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("git rev-parse failed: %v", err)
+	}
+	want := strings.TrimSpace(string(out))
+	if branch != want {
+		t.Errorf("getBranch() = %q, want %q", branch, want)
 	}
 }
