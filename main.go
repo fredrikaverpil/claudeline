@@ -212,7 +212,11 @@ func run() error {
 
 	// Render output.
 	sep := dim + " │ " + ansiReset
-	output := identity + sep + contextBar
+	output := identity
+	if branch := compactBranch(getBranch(), 30); branch != "" {
+		output += sep + dim + branch + ansiReset
+	}
+	output += sep + contextBar
 	if usage5h != "" {
 		output += sep + usage5h
 	}
@@ -368,6 +372,25 @@ func readCredentials() (credentials, error) {
 		return credentials{}, fmt.Errorf("parse credentials file: %w", err)
 	}
 	return creds, nil
+}
+
+// getBranch returns the current git branch name, or "" if not in a git repo.
+func getBranch() string {
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// compactBranch truncates a branch name to maxLen runes using a Unicode ellipsis.
+func compactBranch(name string, maxLen int) string {
+	runes := []rune(name)
+	if len(runes) <= maxLen {
+		return name
+	}
+	half := (maxLen - 1) / 2
+	return string(runes[:half]) + "…" + string(runes[len(runes)-(maxLen-1-half):])
 }
 
 // fetchUsage fetches usage data from the API with file-based caching.
