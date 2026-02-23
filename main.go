@@ -196,6 +196,9 @@ func run() error {
 		output += sep + usage7d
 	}
 
+	// Leading reset clears stale ANSI state from previous renders.
+	// Non-breaking spaces prevent the terminal from collapsing whitespace.
+	output = ansiReset + strings.ReplaceAll(output, " ", "\u00A0")
 	_, err = fmt.Fprintln(os.Stdout, output)
 	return err
 }
