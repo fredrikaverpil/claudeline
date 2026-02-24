@@ -47,20 +47,20 @@ with no external dependencies (stdlib only).
 
 ## Flags
 
-| Flag               | Default | Description                                          |
-| ------------------ | ------- | ---------------------------------------------------- |
-| `-debug`           | `false` | Write warnings/errors to `/tmp/claudeline-debug.log` |
-| `-git-tag`         | `false` | Show git tag in the status line                      |
-| `-git-tag-max-len` | `30`    | Max display length for git tag                       |
-| `-version`         | `false` | Print version and exit                               |
+| Flag                   | Default | Description                                          |
+| ---------------------- | ------- | ---------------------------------------------------- |
+| `-debug`               | `false` | Write warnings/errors to `/tmp/claudeline-debug.log` |
+| `-git-branch`          | `false` | Show git branch in the status line                   |
+| `-git-branch-max-len`  | `30`    | Max display length for git branch                    |
+| `-version`             | `false` | Print version and exit                               |
 
-Example with git tag enabled:
+Example with git branch enabled:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "claudeline -git-tag"
+    "command": "claudeline -git-branch"
   }
 }
 ```
@@ -88,8 +88,8 @@ Key components:
 - **Compaction warning:** A yellow `⚠` appears on the context bar when usage is
   within 5% of the auto-compaction threshold (85% by default, configurable via
   `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`).
-- **Git info:** Branch name always shown, read from `.git/HEAD` (no subprocess).
-  Tag resolved via `git tag --points-at HEAD`, opt-in with `-git-tag`.
+- **Git info:** Branch name read from `.git/HEAD` (no subprocess), opt-in
+  with `-git-branch`.
 - **Custom .claude folder**: Support `CLAUDE_CONFIG_DIR`.
 - **Debug mode:** Pass `-debug` to write warnings and errors to
   `/tmp/claudeline-debug.log`. Set the statusline command to
