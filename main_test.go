@@ -193,3 +193,8 @@ func TestGetBranch(t *testing.T) {
 		}
 	})
 }
+
+func TestGetTag(_ *testing.T) {
+	// Just verify getTag doesn't panic. It may return "" if HEAD isn't tagged.
+	_ = getTag()
+}
