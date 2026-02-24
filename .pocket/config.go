@@ -11,6 +11,9 @@ import (
 var Config = &pk.Config{
 	Auto: pk.Serial(
 		golang.Tasks(),
-		github.Tasks(),
+		pk.WithOptions(
+			github.Tasks(),
+			pk.WithFlag(github.Workflows, github.FlagIncludeGoreleaser, true),
+		),
 	),
 }

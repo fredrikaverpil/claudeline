@@ -17,6 +17,9 @@ permissions:
 jobs:
   please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v6
       - name: release-please config
@@ -39,3 +42,22 @@ jobs:
           config-file: ${{ steps.release-please-config.outputs.config-file }}
           release-type: ${{ steps.release-please-config.outputs.release-type }}
           manifest-file: ${{ steps.release-please-config.outputs.manifest-file }}
+
+  goreleaser:
+    needs: please
+    if: ${{ needs.please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: .pocket/go.mod
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
