@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/fredrikaverpil/claudeline/compare/v0.3.0...v0.4.0) (2026-02-24)
+
+
+### Features
+
+* display git branch and tag in status line ([#27](https://github.com/fredrikaverpil/claudeline/issues/27)) ([e60501a](https://github.com/fredrikaverpil/claudeline/commit/e60501a55d0fb1af8abc38294f88d716cc1ab785))
+* use pre-built binaries as primary install method ([#26](https://github.com/fredrikaverpil/claudeline/issues/26)) ([c9f1a7d](https://github.com/fredrikaverpil/claudeline/commit/c9f1a7d3a797a86b239e1441026598051f9b3205))
+
+
+### Bug Fixes
+
+* disable goreleaser changelog ([#24](https://github.com/fredrikaverpil/claudeline/issues/24)) ([ca65697](https://github.com/fredrikaverpil/claudeline/commit/ca65697c0dbe358cbebbd74aa1e2edd6483a1331))
+
 ## [0.3.0](https://github.com/fredrikaverpil/claudeline/compare/v0.2.4...v0.3.0) (2026-02-24)
 
 
