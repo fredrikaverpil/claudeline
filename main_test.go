@@ -143,18 +143,53 @@ func TestCompactBranch(t *testing.T) {
 }
 
 func TestGetBranch(t *testing.T) {
-	// In this repo, getBranch should return a non-empty branch name.
-	branch := getBranch()
-	if branch == "" {
-		t.Fatal("getBranch() returned empty string, expected a branch name")
-	}
-	// Verify it matches git output directly.
-	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	tmp := t.TempDir()
+
+	// Save and restore working directory.
+	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("git rev-parse failed: %v", err)
+		t.Fatal(err)
 	}
-	want := strings.TrimSpace(string(out))
-	if branch != want {
-		t.Errorf("getBranch() = %q, want %q", branch, want)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
 	}
+
+	// Initialize a real git repo so .git/HEAD is created by git itself.
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = tmp
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("init", "-b", "main")
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "Test")
+
+	t.Run("default branch", func(t *testing.T) {
+		got := getBranch()
+		if got != "main" {
+			t.Errorf("getBranch() = %q, want %q", got, "main")
+		}
+	})
+
+	t.Run("branch with slashes", func(t *testing.T) {
+		run("switch", "-c", "feat/my-feature")
+		got := getBranch()
+		if got != "feat/my-feature" {
+			t.Errorf("getBranch() = %q, want %q", got, "feat/my-feature")
+		}
+	})
+
+	t.Run("detached HEAD", func(t *testing.T) {
+		// Need a commit to detach from.
+		run("commit", "--allow-empty", "-m", "init")
+		run("switch", "--detach")
+		got := getBranch()
+		if got != "" {
+			t.Errorf("getBranch() = %q, want empty string", got)
+		}
+	})
 }

@@ -376,11 +376,15 @@ func readCredentials() (credentials, error) {
 
 // getBranch returns the current git branch name, or "" if not in a git repo.
 func getBranch() string {
-	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	data, err := os.ReadFile(".git/HEAD")
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	s := strings.TrimSpace(string(data))
+	if after, ok := strings.CutPrefix(s, "ref: refs/heads/"); ok {
+		return after
+	}
+	return "" // detached HEAD or bare repo
 }
 
 // compactBranch truncates a branch name to maxLen runes using a Unicode ellipsis.
