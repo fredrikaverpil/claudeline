@@ -96,34 +96,34 @@ func TestKeychainServiceName(t *testing.T) {
 	}
 }
 
-func TestCompactBranch(t *testing.T) {
+func TestCompactName(t *testing.T) {
 	tests := []struct {
 		name   string
-		branch string
+		input  string
 		maxLen int
 		want   string
 	}{
 		{
 			name:   "short name unchanged",
-			branch: "main",
+			input:  "main",
 			maxLen: 30,
 			want:   "main",
 		},
 		{
 			name:   "exactly at limit",
-			branch: strings.Repeat("a", 30),
+			input:  strings.Repeat("a", 30),
 			maxLen: 30,
 			want:   strings.Repeat("a", 30),
 		},
 		{
 			name:   "truncated with ellipsis",
-			branch: "backup/feat-support-claudeline-progress-tracker",
+			input:  "backup/feat-support-claudeline-progress-tracker",
 			maxLen: 30,
 			want:   "backup/feat-su…rogress-tracker",
 		},
 		{
 			name:   "empty string",
-			branch: "",
+			input:  "",
 			maxLen: 30,
 			want:   "",
 		},
@@ -131,12 +131,12 @@ func TestCompactBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := compactBranch(tt.branch, tt.maxLen)
+			got := compactName(tt.input, tt.maxLen)
 			if got != tt.want {
-				t.Errorf("compactBranch(%q, %d) = %q, want %q", tt.branch, tt.maxLen, got, tt.want)
+				t.Errorf("compactName(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
 			}
 			if len([]rune(got)) > tt.maxLen {
-				t.Errorf("compactBranch(%q, %d) rune length = %d, exceeds maxLen", tt.branch, tt.maxLen, len([]rune(got)))
+				t.Errorf("compactName(%q, %d) rune length = %d, exceeds maxLen", tt.input, tt.maxLen, len([]rune(got)))
 			}
 		})
 	}
@@ -192,4 +192,9 @@ func TestGetBranch(t *testing.T) {
 			t.Errorf("getBranch() = %q, want empty string", got)
 		}
 	})
+}
+
+func TestGetTag(_ *testing.T) {
+	// Just verify getTag doesn't panic. It may return "" if HEAD isn't tagged.
+	_ = getTag()
 }
