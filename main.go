@@ -112,13 +112,15 @@ func buildVersion() string {
 
 // config holds CLI configuration.
 type config struct {
-	showGitBranch bool
+	showGitBranch   bool
+	gitBranchMaxLen int
 }
 
 func runMain() int {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	debug := flag.Bool("debug", false, "write warnings and errors to "+debugLogFile)
 	showGitBranch := flag.Bool("git-branch", false, "show git branch in the status line")
+	gitBranchMaxLen := flag.Int("git-branch-max-len", 30, "max display length for git branch")
 	flag.Parse()
 
 	if *showVersion {
@@ -141,7 +143,8 @@ func runMain() int {
 	}
 
 	cfg := config{
-		showGitBranch: *showGitBranch,
+		showGitBranch:   *showGitBranch,
+		gitBranchMaxLen: *gitBranchMaxLen,
 	}
 	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "claudeline: %v\n", err)
@@ -223,7 +226,7 @@ func run(cfg config) error {
 	sep := dim + " │ " + ansiReset
 	output := identity
 	if cfg.showGitBranch {
-		if branch := compactName(getBranch(), 30); branch != "" {
+		if branch := compactName(getBranch(), cfg.gitBranchMaxLen); branch != "" {
 			output += sep + dim + branch + ansiReset
 		}
 	}

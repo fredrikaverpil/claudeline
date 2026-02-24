@@ -47,11 +47,12 @@ with no external dependencies (stdlib only).
 
 ## Flags
 
-| Flag          | Default | Description                                          |
-| ------------- | ------- | ---------------------------------------------------- |
-| `-debug`      | `false` | Write warnings/errors to `/tmp/claudeline-debug.log` |
-| `-git-branch` | `false` | Show git branch in the status line                   |
-| `-version`    | `false` | Print version and exit                               |
+| Flag                   | Default | Description                                          |
+| ---------------------- | ------- | ---------------------------------------------------- |
+| `-debug`               | `false` | Write warnings/errors to `/tmp/claudeline-debug.log` |
+| `-git-branch`          | `false` | Show git branch in the status line                   |
+| `-git-branch-max-len`  | `30`    | Max display length for git branch                    |
+| `-version`             | `false` | Print version and exit                               |
 
 Example with git branch enabled:
 
