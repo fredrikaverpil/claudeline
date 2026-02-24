@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.5.0](https://github.com/fredrikaverpil/claudeline/compare/v0.4.0...v0.5.0) (2026-02-24)
+
+
+### Features
+
+* rename -git-tag to -git-branch and add -git-branch-max-len flag ([#28](https://github.com/fredrikaverpil/claudeline/issues/28)) ([1886349](https://github.com/fredrikaverpil/claudeline/commit/188634941cc35dae8eda1a95f37410064536f70f))
+
+## [0.4.0](https://github.com/fredrikaverpil/claudeline/compare/v0.3.0...v0.4.0) (2026-02-24)
+
+> **Note:** The v0.4.0 release was revoked due to incorrect flag naming. Use
+> v0.5.0 instead.
+
+
+### Features
+
+* display git branch and tag in status line ([#27](https://github.com/fredrikaverpil/claudeline/issues/27)) ([e60501a](https://github.com/fredrikaverpil/claudeline/commit/e60501a55d0fb1af8abc38294f88d716cc1ab785)), based on [#21](https://github.com/fredrikaverpil/claudeline/pull/21) by [@bpg-dev](https://github.com/bpg-dev)
+* use pre-built binaries as primary install method ([#26](https://github.com/fredrikaverpil/claudeline/issues/26)) ([c9f1a7d](https://github.com/fredrikaverpil/claudeline/commit/c9f1a7d3a797a86b239e1441026598051f9b3205))
+
+
+### Bug Fixes
+
+* disable goreleaser changelog ([#24](https://github.com/fredrikaverpil/claudeline/issues/24)) ([ca65697](https://github.com/fredrikaverpil/claudeline/commit/ca65697c0dbe358cbebbd74aa1e2edd6483a1331))
+
 ## [0.3.0](https://github.com/fredrikaverpil/claudeline/compare/v0.2.4...v0.3.0) (2026-02-24)
 
 
