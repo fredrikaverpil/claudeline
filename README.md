@@ -50,17 +50,19 @@ with no external dependencies (stdlib only).
 | Flag                   | Default | Description                                          |
 | ---------------------- | ------- | ---------------------------------------------------- |
 | `-debug`               | `false` | Write warnings/errors to `/tmp/claudeline-debug.log` |
+| `-cwd`                 | `false` | Show working directory name in the status line       |
+| `-cwd-max-len`         | `30`    | Max display length for working directory name        |
 | `-git-branch`          | `false` | Show git branch in the status line                   |
 | `-git-branch-max-len`  | `30`    | Max display length for git branch                    |
 | `-version`             | `false` | Print version and exit                               |
 
-Example with git branch enabled:
+Example with working directory and git branch enabled:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "claudeline -git-branch"
+    "command": "claudeline -cwd -git-branch"
   }
 }
 ```
@@ -88,6 +90,8 @@ Key components:
 - **Compaction warning:** A yellow `⚠` appears on the context bar when usage is
   within 5% of the auto-compaction threshold (85% by default, configurable via
   `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`).
+- **Working directory:** Last path segment from `cwd` in stdin JSON, opt-in
+  with `-cwd`.
 - **Git info:** Branch name read from `.git/HEAD` (no subprocess), opt-in
   with `-git-branch`.
 - **Custom .claude folder**: Support `CLAUDE_CONFIG_DIR`.
