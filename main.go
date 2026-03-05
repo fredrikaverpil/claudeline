@@ -115,6 +115,8 @@ func buildVersion() string {
 type config struct {
 	showGitBranch   bool
 	gitBranchMaxLen int
+	showCwd         bool
+	cwdMaxLen       int
 }
 
 func runMain() int {
@@ -122,6 +124,8 @@ func runMain() int {
 	debug := flag.Bool("debug", false, "write warnings and errors to "+debugLogFile)
 	showGitBranch := flag.Bool("git-branch", false, "show git branch in the status line")
 	gitBranchMaxLen := flag.Int("git-branch-max-len", 30, "max display length for git branch")
+	showCwd := flag.Bool("cwd", false, "show working directory name in the status line")
+	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
 	flag.Parse()
 
 	if *showVersion {
@@ -146,6 +150,8 @@ func runMain() int {
 	cfg := config{
 		showGitBranch:   *showGitBranch,
 		gitBranchMaxLen: *gitBranchMaxLen,
+		showCwd:         *showCwd,
+		cwdMaxLen:       *cwdMaxLen,
 	}
 	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "claudeline: %v\n", err)
