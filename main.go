@@ -33,6 +33,7 @@ const (
 	green         = "\033[32m"
 	yellow        = "\033[33m"
 	red           = "\033[31m"
+	magenta       = "\033[35m"
 	cyan          = "\033[36m"
 	brightBlue    = "\033[94m"
 	brightMagenta = "\033[95m"
@@ -239,7 +240,7 @@ func run(cfg config) error {
 	}
 	if cfg.showGitBranch {
 		if branch := compactName(getBranch(), cfg.gitBranchMaxLen); branch != "" {
-			output += sep + branch
+			output += sep + magenta + branch + ansiReset
 		}
 	}
 	output += sep + contextBar
