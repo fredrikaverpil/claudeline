@@ -239,7 +239,7 @@ func run(cfg config) error {
 	}
 	if cfg.showGitBranch {
 		if branch := compactName(getBranch(), cfg.gitBranchMaxLen); branch != "" {
-			output += sep + cyan + branch + ansiReset
+			output += sep + branch
 		}
 	}
 	output += sep + contextBar
