@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/fredrikaverpil/claudeline/compare/v0.5.0...v0.6.0) (2026-03-05)
+
+
+### Features
+
+* add -cwd flag for working directory display ([#31](https://github.com/fredrikaverpil/claudeline/issues/31)) ([8e5c5fd](https://github.com/fredrikaverpil/claudeline/commit/8e5c5fdf9c54cb4c16e59713f9a310542bd9ab91))
+* add context window zone colors (smart/dumb/danger/compaction) ([#34](https://github.com/fredrikaverpil/claudeline/issues/34)) ([b0f4ca9](https://github.com/fredrikaverpil/claudeline/commit/b0f4ca9a3a16af32711860866cd3c1126bf5f9ff))
+
+
+### Bug Fixes
+
+* use stable /tmp path on Unix instead of os.TempDir() ([#30](https://github.com/fredrikaverpil/claudeline/issues/30)) ([e2c6106](https://github.com/fredrikaverpil/claudeline/commit/e2c6106f3acee19f4ff4e5a183c4253afc938117))
+
 ## [0.5.0](https://github.com/fredrikaverpil/claudeline/compare/v0.4.0...v0.5.0) (2026-02-24)
 
 
