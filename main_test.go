@@ -215,6 +215,34 @@ func TestCwdName(t *testing.T) {
 	}
 }
 
+func TestContextColorFunc(t *testing.T) {
+	colorFn := contextColorFunc(80)
+
+	tests := []struct {
+		name string
+		pct  int
+		want string
+	}{
+		{name: "smart zone 0%", pct: 0, want: green},
+		{name: "smart zone 40%", pct: 40, want: green},
+		{name: "dumb zone 41%", pct: 41, want: yellow},
+		{name: "dumb zone 60%", pct: 60, want: yellow},
+		{name: "danger zone 61%", pct: 61, want: orange},
+		{name: "danger zone 79%", pct: 79, want: orange},
+		{name: "near compaction 80%", pct: 80, want: red},
+		{name: "near compaction 100%", pct: 100, want: red},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := colorFn(tt.pct)
+			if got != tt.want {
+				t.Errorf("contextColorFunc(80)(%d) = %q, want %q", tt.pct, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetBranch(t *testing.T) {
 	tmp := t.TempDir()
 

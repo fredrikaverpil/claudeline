@@ -37,6 +37,7 @@ const (
 	cyan          = "\033[36m"
 	brightBlue    = "\033[94m"
 	brightMagenta = "\033[95m"
+	orange        = "\033[38;5;208m"
 	dim           = "\033[2m"
 	ansiReset     = "\033[0m"
 )
@@ -285,14 +286,19 @@ func planName(subType string) string {
 	}
 }
 
-// contextColorFunc returns a color function for context usage that turns red
-// at the given warning percentage (compaction threshold minus margin).
+// contextColorFunc returns a color function for context window usage zones:
+//   - Smart (green):  0–40%  — model performs at full capability
+//   - Dumb (yellow):  41–60% — quality starts to degrade
+//   - Danger (orange): 61%–warnPct — significant quality loss
+//   - Near compaction (red): ≥warnPct — approaching auto-compaction
 func contextColorFunc(warnPct int) func(int) string {
 	return func(pct int) string {
 		switch {
 		case pct >= warnPct:
 			return red
-		case pct >= 70:
+		case pct > 60:
+			return orange
+		case pct > 40:
 			return yellow
 		default:
 			return green
