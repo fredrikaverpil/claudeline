@@ -418,7 +418,11 @@ func getBranch() string {
 func cwdName(cwd string, maxLen int) string {
 	// Normalize separators for cross-platform support.
 	name := filepath.Base(strings.ReplaceAll(cwd, `\`, "/"))
-	if name == "." || name == "/" {
+	switch {
+	case name == "." || name == "/" || name == `\`:
+		return ""
+	case len(name) == 2 && name[1] == ':':
+		// Bare Windows drive letter (e.g. "C:") — root of a drive.
 		return ""
 	}
 	return compactName(name, maxLen)

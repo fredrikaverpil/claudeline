@@ -191,6 +191,18 @@ func TestCwdName(t *testing.T) {
 			maxLen: 30,
 			want:   "fredrik",
 		},
+		{
+			name:   "windows root C:\\",
+			cwd:    `C:\`,
+			maxLen: 30,
+			want:   "",
+		},
+		{
+			name:   "windows root C:/",
+			cwd:    "C:/",
+			maxLen: 30,
+			want:   "",
+		},
 	}
 
 	for _, tt := range tests {
