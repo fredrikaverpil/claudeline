@@ -13,7 +13,9 @@ var Config = &pk.Config{
 		golang.Tasks(),
 		pk.WithOptions(
 			github.Tasks(),
-			pk.WithFlag(github.Workflows, github.FlagIncludeGoreleaser, true),
+			pk.WithFlags(github.WorkflowFlags{
+				GoReleaserWorkflow: new(true),
+			}),
 		),
 	),
 }
