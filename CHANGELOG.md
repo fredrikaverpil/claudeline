@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/fredrikaverpil/claudeline/compare/v0.6.0...v0.7.0) (2026-03-08)
+
+
+### Features
+
+* **go:** bump to go 1.26.1 ([#35](https://github.com/fredrikaverpil/claudeline/issues/35)) ([5c92ef4](https://github.com/fredrikaverpil/claudeline/commit/5c92ef4e452f78419c85151a2376d0c8588d3428))
+
 ## [0.6.0](https://github.com/fredrikaverpil/claudeline/compare/v0.5.0...v0.6.0) (2026-03-05)
 
 
