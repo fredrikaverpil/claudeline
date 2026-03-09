@@ -224,7 +224,7 @@ func run(cfg config) error {
 	}
 	if token != "" && plan != "" {
 		usage, fetchErr := fetchUsage(ctx, token)
-		if fetchErr != nil {
+		if fetchErr != nil && !errors.Is(fetchErr, errCachedRateLimited) && !errors.Is(fetchErr, errCachedFailure) {
 			log.Printf("usage: %v", fetchErr)
 		}
 		if fetchErr == nil && usage != nil {
