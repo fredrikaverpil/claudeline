@@ -554,37 +554,69 @@ func writeCache(usage *usageResponse, ok bool, retryAfter time.Duration) {
 
 // fetchUsageAPI makes the HTTP request to the usage API.
 // On rate limit (429), retryAfter contains the duration from the retry-after header.
+// When the API returns Retry-After: 0, a single immediate retry is attempted
+// to distinguish "retry now" from a bad signal.
 func fetchUsageAPI(ctx context.Context, token string) (_ *usageResponse, retryAfter time.Duration, _ error) {
+	usage, rawRetryAfter, err := doUsageRequest(ctx, token)
+	if err == nil {
+		return usage, 0, nil
+	}
+	if !errors.Is(err, errRateLimited) {
+		return nil, 0, err
+	}
+
+	// If Retry-After is "0", the API claims we can retry immediately.
+	// Try once more — if it fails again, treat it as a bad signal.
+	if rawRetryAfter != "0" {
+		ra := parseRetryAfter(rawRetryAfter)
+		return nil, ra, err
+	}
+	log.Printf("retry-after=0, retrying once to verify")
+	usage, rawRetryAfter, err = doUsageRequest(ctx, token)
+	if err == nil {
+		return usage, 0, nil
+	}
+	if !errors.Is(err, errRateLimited) {
+		return nil, 0, err
+	}
+	// Second attempt also failed — "0" was a bad signal.
+	log.Printf("retry-after=0 on second attempt, treating as bad signal, using default TTL")
+	return nil, cacheTTLRateLimitDefault, err
+}
+
+// doUsageRequest performs a single HTTP request to the usage API.
+// On 429, it returns errRateLimited along with the raw Retry-After header value.
+func doUsageRequest(ctx context.Context, token string) (_ *usageResponse, rawRetryAfter string, _ error) {
 	ctx, cancel := context.WithTimeout(ctx, ioTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, usageURL, nil)
 	if err != nil {
-		return nil, 0, fmt.Errorf("create request: %w", err)
+		return nil, "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Anthropic-Beta", "oauth-2025-04-20")
 
 	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("execute request: %w", err)
+		return nil, "", fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		body, _ := io.ReadAll(resp.Body)
-		ra := parseRetryAfter(resp.Header.Get("Retry-After"))
-		log.Printf("rate limited: status=%d retry-after=%q parsed=%s body=%s", resp.StatusCode, resp.Header.Get("Retry-After"), ra, body)
-		return nil, ra, fmt.Errorf("unexpected status %d: %w", resp.StatusCode, errRateLimited)
+		raw := resp.Header.Get("Retry-After")
+		log.Printf("rate limited: status=%d retry-after=%q body=%s", resp.StatusCode, raw, body)
+		return nil, raw, fmt.Errorf("unexpected status %d: %w", resp.StatusCode, errRateLimited)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
 	var usage usageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
-		return nil, 0, fmt.Errorf("decode response: %w", err)
+		return nil, "", fmt.Errorf("decode response: %w", err)
 	}
-	return &usage, 0, nil
+	return &usage, "", nil
 }
 
 // parseRetryAfter parses the Retry-After header value as seconds (integer)
@@ -592,10 +624,8 @@ func fetchUsageAPI(ctx context.Context, token string) (_ *usageResponse, retryAf
 // header is missing, zero, or unparseable, clamped to cacheTTLRateLimitMaxBackoff.
 // See https://platform.claude.com/docs/en/api/rate-limits for details.
 //
-// NOTE: The undocumented OAuth usage API has been observed to return
-// "Retry-After: 0" on 429 responses. Per the spec, 0 means "retry now",
-// but doing so would hammer the API. We treat 0 as "not a useful signal"
-// and fall back to the conservative default TTL instead.
+// NOTE: Values <= 0 return the default TTL. The caller (fetchUsageAPI)
+// handles the "Retry-After: 0" case separately with a single retry.
 func parseRetryAfter(value string) time.Duration {
 	if value == "" {
 		return cacheTTLRateLimitDefault
