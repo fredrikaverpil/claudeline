@@ -43,12 +43,13 @@ const (
 )
 
 const (
-	cacheTTLOK        = 60 * time.Second
-	cacheTTLFail      = 15 * time.Second
-	cacheTTLRateLimit = 5 * time.Minute
-	usageURL          = "https://api.anthropic.com/api/oauth/usage"
-	ioTimeout         = 5 * time.Second
-	barWidth          = 5
+	cacheTTLOK                  = 60 * time.Second
+	cacheTTLFail                = 15 * time.Second
+	cacheTTLRateLimitDefault    = 5 * time.Minute
+	cacheTTLRateLimitMaxBackoff = 30 * time.Minute
+	usageURL                    = "https://api.anthropic.com/api/oauth/usage"
+	ioTimeout                   = 5 * time.Second
+	barWidth                    = 5
 )
 
 var (
@@ -95,6 +96,7 @@ type cacheEntry struct {
 	Timestamp   int64           `json:"timestamp"`
 	OK          bool            `json:"ok"`
 	RateLimited bool            `json:"rate_limited,omitempty"`
+	RetryAfter  int64           `json:"retry_after,omitempty"` // Unix timestamp; when non-zero, retry is allowed after this time.
 }
 
 func main() {
@@ -478,13 +480,13 @@ func fetchUsage(ctx context.Context, token string) (*usageResponse, error) {
 	}
 
 	// Fetch from API.
-	usage, err := fetchUsageAPI(ctx, token)
+	usage, retryAfter, err := fetchUsageAPI(ctx, token)
 	if err != nil {
-		writeCache(nil, false, errors.Is(err, errRateLimited))
+		writeCache(nil, false, retryAfter)
 		return nil, fmt.Errorf("fetch usage API: %w", err)
 	}
 
-	writeCache(usage, true, false)
+	writeCache(usage, true, 0)
 	return usage, nil
 }
 
@@ -508,8 +510,16 @@ func readCache() (*usageResponse, error) {
 		}
 		return &usage, nil
 	}
-	if !entry.OK && entry.RateLimited && age < cacheTTLRateLimit {
-		return nil, errCachedRateLimited
+	if !entry.OK && entry.RateLimited {
+		if entry.RetryAfter > 0 && time.Now().Unix() < entry.RetryAfter {
+			return nil, errCachedRateLimited
+		}
+		// Fallback for cache entries without RetryAfter (e.g. written by older versions).
+		if entry.RetryAfter == 0 && age < cacheTTLRateLimitDefault {
+			return nil, errCachedRateLimited
+		}
+		// Deadline passed or fallback TTL expired — allow re-fetch.
+		return nil, errors.New("cache expired")
 	}
 	if !entry.OK && age < cacheTTLFail {
 		return nil, errCachedFailure
@@ -519,11 +529,14 @@ func readCache() (*usageResponse, error) {
 }
 
 // writeCache writes usage data to the cache file.
-func writeCache(usage *usageResponse, ok, rateLimited bool) {
+func writeCache(usage *usageResponse, ok bool, retryAfter time.Duration) {
 	entry := cacheEntry{
 		Timestamp:   time.Now().Unix(),
 		OK:          ok,
-		RateLimited: rateLimited,
+		RateLimited: retryAfter > 0,
+	}
+	if retryAfter > 0 {
+		entry.RetryAfter = time.Now().Add(retryAfter).Unix()
 	}
 	if usage != nil {
 		data, err := json.Marshal(usage)
@@ -540,32 +553,66 @@ func writeCache(usage *usageResponse, ok, rateLimited bool) {
 }
 
 // fetchUsageAPI makes the HTTP request to the usage API.
-func fetchUsageAPI(ctx context.Context, token string) (*usageResponse, error) {
+// On rate limit (429), retryAfter contains the duration from the retry-after header.
+func fetchUsageAPI(ctx context.Context, token string) (_ *usageResponse, retryAfter time.Duration, _ error) {
 	ctx, cancel := context.WithTimeout(ctx, ioTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, usageURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, 0, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Anthropic-Beta", "oauth-2025-04-20")
 
 	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("execute request: %w", err)
+		return nil, 0, fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("unexpected status %d: %w", resp.StatusCode, errRateLimited)
+		body, _ := io.ReadAll(resp.Body)
+		ra := parseRetryAfter(resp.Header.Get("Retry-After"))
+		log.Printf("rate limited: status=%d retry-after=%q parsed=%s body=%s", resp.StatusCode, resp.Header.Get("Retry-After"), ra, body)
+		return nil, ra, fmt.Errorf("unexpected status %d: %w", resp.StatusCode, errRateLimited)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return nil, 0, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
 	var usage usageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		return nil, 0, fmt.Errorf("decode response: %w", err)
 	}
-	return &usage, nil
+	return &usage, 0, nil
+}
+
+// parseRetryAfter parses the Retry-After header value as seconds (integer)
+// or as an HTTP-date (RFC1123). Returns cacheTTLRateLimitDefault if the
+// header is missing, zero, or unparseable, clamped to cacheTTLRateLimitMaxBackoff.
+// See https://platform.claude.com/docs/en/api/rate-limits for details.
+//
+// NOTE: The undocumented OAuth usage API has been observed to return
+// "Retry-After: 0" on 429 responses. Per the spec, 0 means "retry now",
+// but doing so would hammer the API. We treat 0 as "not a useful signal"
+// and fall back to the conservative default TTL instead.
+func parseRetryAfter(value string) time.Duration {
+	if value == "" {
+		return cacheTTLRateLimitDefault
+	}
+	// Try as seconds first (most common for APIs).
+	// Requires secs > 0 to avoid treating "0" as "retry immediately".
+	if secs, err := strconv.Atoi(value); err == nil && secs > 0 {
+		d := time.Duration(secs) * time.Second
+		return min(d, cacheTTLRateLimitMaxBackoff)
+	}
+	// Try as HTTP-date (RFC1123).
+	if t, err := time.Parse(time.RFC1123, value); err == nil {
+		d := time.Until(t)
+		if d <= 0 {
+			return cacheTTLRateLimitDefault
+		}
+		return min(d, cacheTTLRateLimitMaxBackoff)
+	}
+	return cacheTTLRateLimitDefault
 }

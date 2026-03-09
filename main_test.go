@@ -253,7 +253,50 @@ func TestReadCacheRateLimited(t *testing.T) {
 	cachePath := cacheFilePath()
 	t.Cleanup(func() { os.Remove(cachePath) })
 
-	t.Run("rate limited cache returns sentinel error", func(t *testing.T) {
+	t.Run("rate limited with future RetryAfter returns sentinel error", func(t *testing.T) {
+		entry := cacheEntry{
+			Timestamp:   time.Now().Unix(),
+			OK:          false,
+			RateLimited: true,
+			RetryAfter:  time.Now().Add(5 * time.Minute).Unix(),
+		}
+		data, err := json.Marshal(entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = readCache()
+		if !errors.Is(err, errCachedRateLimited) {
+			t.Errorf("readCache() error = %v, want %v", err, errCachedRateLimited)
+		}
+	})
+
+	t.Run("rate limited with past RetryAfter returns cache expired", func(t *testing.T) {
+		entry := cacheEntry{
+			Timestamp:   time.Now().Add(-time.Minute).Unix(),
+			OK:          false,
+			RateLimited: true,
+			RetryAfter:  time.Now().Add(-time.Second).Unix(),
+		}
+		data, err := json.Marshal(entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = readCache()
+		if err == nil || errors.Is(err, errCachedRateLimited) {
+			t.Errorf("readCache() error = %v, want cache expired", err)
+		}
+	})
+
+	t.Run("rate limited without RetryAfter uses default TTL fallback", func(t *testing.T) {
+		// Simulates cache written by an older version without RetryAfter.
 		entry := cacheEntry{
 			Timestamp:   time.Now().Unix(),
 			OK:          false,
@@ -273,9 +316,9 @@ func TestReadCacheRateLimited(t *testing.T) {
 		}
 	})
 
-	t.Run("expired rate limit cache returns cache expired", func(t *testing.T) {
+	t.Run("rate limited without RetryAfter expired returns cache expired", func(t *testing.T) {
 		entry := cacheEntry{
-			Timestamp:   time.Now().Add(-cacheTTLRateLimit - time.Second).Unix(),
+			Timestamp:   time.Now().Add(-cacheTTLRateLimitDefault - time.Second).Unix(),
 			OK:          false,
 			RateLimited: true,
 		}
@@ -292,6 +335,54 @@ func TestReadCacheRateLimited(t *testing.T) {
 			t.Errorf("readCache() error = %v, want cache expired", err)
 		}
 	})
+}
+
+func TestParseRetryAfter(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  time.Duration
+	}{
+		{
+			name:  "empty returns default",
+			value: "",
+			want:  cacheTTLRateLimitDefault,
+		},
+		{
+			name:  "integer seconds",
+			value: "120",
+			want:  120 * time.Second,
+		},
+		{
+			name:  "clamped to max backoff",
+			value: "7200",
+			want:  cacheTTLRateLimitMaxBackoff,
+		},
+		{
+			name:  "zero returns default",
+			value: "0",
+			want:  cacheTTLRateLimitDefault,
+		},
+		{
+			name:  "negative returns default",
+			value: "-10",
+			want:  cacheTTLRateLimitDefault,
+		},
+		{
+			name:  "unparseable returns default",
+			value: "not-a-number",
+			want:  cacheTTLRateLimitDefault,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseRetryAfter(tt.value)
+			if got != tt.want {
+				t.Errorf("parseRetryAfter(%q) = %v, want %v", tt.value, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestGetBranch(t *testing.T) {
