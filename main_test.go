@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCacheFilePath(t *testing.T) {
@@ -241,6 +244,54 @@ func TestContextColorFunc(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReadCacheRateLimited(t *testing.T) {
+	// Use a unique CLAUDE_CONFIG_DIR to isolate the cache file per test.
+	dir := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+	cachePath := cacheFilePath()
+	t.Cleanup(func() { os.Remove(cachePath) })
+
+	t.Run("rate limited cache returns sentinel error", func(t *testing.T) {
+		entry := cacheEntry{
+			Timestamp:   time.Now().Unix(),
+			OK:          false,
+			RateLimited: true,
+		}
+		data, err := json.Marshal(entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = readCache()
+		if !errors.Is(err, errCachedRateLimited) {
+			t.Errorf("readCache() error = %v, want %v", err, errCachedRateLimited)
+		}
+	})
+
+	t.Run("expired rate limit cache returns cache expired", func(t *testing.T) {
+		entry := cacheEntry{
+			Timestamp:   time.Now().Add(-cacheTTLRateLimit - time.Second).Unix(),
+			OK:          false,
+			RateLimited: true,
+		}
+		data, err := json.Marshal(entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = readCache()
+		if err == nil || errors.Is(err, errCachedRateLimited) {
+			t.Errorf("readCache() error = %v, want cache expired", err)
+		}
+	})
 }
 
 func TestGetBranch(t *testing.T) {
