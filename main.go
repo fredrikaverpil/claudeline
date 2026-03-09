@@ -43,14 +43,18 @@ const (
 )
 
 const (
-	cacheTTLOK   = 60 * time.Second
-	cacheTTLFail = 15 * time.Second
-	usageURL     = "https://api.anthropic.com/api/oauth/usage"
-	ioTimeout    = 5 * time.Second
-	barWidth     = 5
+	cacheTTLOK        = 60 * time.Second
+	cacheTTLFail      = 15 * time.Second
+	cacheTTLRateLimit = 5 * time.Minute
+	usageURL          = "https://api.anthropic.com/api/oauth/usage"
+	ioTimeout         = 5 * time.Second
+	barWidth          = 5
 )
 
-var debugLogFile = filepath.Join(tempDir(), "claudeline-debug.log")
+var (
+	debugLogFile   = filepath.Join(tempDir(), "claudeline-debug.log")
+	errRateLimited = errors.New("rate limited")
+)
 
 // stdinData is the JSON structure received from Claude Code via stdin.
 type stdinData struct {
@@ -85,9 +89,10 @@ type usageResponse struct {
 
 // cacheEntry is the file-based cache structure.
 type cacheEntry struct {
-	Data      json.RawMessage `json:"data"`
-	Timestamp int64           `json:"timestamp"`
-	OK        bool            `json:"ok"`
+	Data        json.RawMessage `json:"data"`
+	Timestamp   int64           `json:"timestamp"`
+	OK          bool            `json:"ok"`
+	RateLimited bool            `json:"rate_limited,omitempty"`
 }
 
 func main() {
@@ -466,11 +471,11 @@ func fetchUsage(ctx context.Context, token string) (*usageResponse, error) {
 	// Fetch from API.
 	usage, err := fetchUsageAPI(ctx, token)
 	if err != nil {
-		writeCache(nil, false)
+		writeCache(nil, false, errors.Is(err, errRateLimited))
 		return nil, fmt.Errorf("fetch usage API: %w", err)
 	}
 
-	writeCache(usage, true)
+	writeCache(usage, true, false)
 	return usage, nil
 }
 
@@ -494,6 +499,9 @@ func readCache() (*usageResponse, error) {
 		}
 		return &usage, nil
 	}
+	if !entry.OK && entry.RateLimited && age < cacheTTLRateLimit {
+		return nil, errors.New("cached rate limit")
+	}
 	if !entry.OK && age < cacheTTLFail {
 		return nil, errors.New("cached failure")
 	}
@@ -502,10 +510,11 @@ func readCache() (*usageResponse, error) {
 }
 
 // writeCache writes usage data to the cache file.
-func writeCache(usage *usageResponse, ok bool) {
+func writeCache(usage *usageResponse, ok, rateLimited bool) {
 	entry := cacheEntry{
-		Timestamp: time.Now().Unix(),
-		OK:        ok,
+		Timestamp:   time.Now().Unix(),
+		OK:          ok,
+		RateLimited: rateLimited,
 	}
 	if usage != nil {
 		data, err := json.Marshal(usage)
@@ -538,6 +547,9 @@ func fetchUsageAPI(ctx context.Context, token string) (*usageResponse, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, fmt.Errorf("unexpected status %d: %w", resp.StatusCode, errRateLimited)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
