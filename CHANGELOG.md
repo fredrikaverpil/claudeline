@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/fredrikaverpil/claudeline/compare/v0.8.0...v0.8.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* **cache:** use Retry-After header for rate limit cache TTL ([#43](https://github.com/fredrikaverpil/claudeline/issues/43)) ([a97345a](https://github.com/fredrikaverpil/claudeline/commit/a97345ad6c267dd372e2ee9bdab9a2f1463b2bcc))
+
 ## [0.8.0](https://github.com/fredrikaverpil/claudeline/compare/v0.7.0...v0.8.0) (2026-03-09)
 
 
