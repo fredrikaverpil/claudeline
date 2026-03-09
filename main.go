@@ -228,6 +228,7 @@ func run(cfg config) error {
 
 	// Usage bars.
 	var usage5h, usage7d, usageExtra string
+	var hasSubBars bool
 	token := creds.ClaudeAiOauth.AccessToken
 	if token == "" {
 		log.Printf("usage: no access token found")
@@ -265,6 +266,7 @@ func run(cfg config) error {
 			} {
 				if s := formatQuotaSubBar(sub.q, sub.label); s != "" {
 					usage7d += subSep + s
+					hasSubBars = true
 				}
 			}
 
@@ -274,28 +276,28 @@ func run(cfg config) error {
 	}
 
 	// Render output.
-	sep := dim + " │ " + ansiReset
-	output := identity
+	var cwdStr, branchStr string
 	if cfg.showCwd {
 		if name := cwdName(data.Cwd, cfg.cwdMaxLen); name != "" {
-			output += sep + yellow + name + ansiReset
+			cwdStr = yellow + name + ansiReset
 		}
 	}
 	if cfg.showGitBranch {
 		if branch := compactName(getBranch(), cfg.gitBranchMaxLen); branch != "" {
-			output += sep + magenta + branch + ansiReset
+			branchStr = magenta + branch + ansiReset
 		}
 	}
-	output += sep + contextBar
-	if usage5h != "" {
-		output += sep + usage5h
+
+	sep := dim + " │ " + ansiReset
+	identityFull := identity
+	if cwdStr != "" {
+		identityFull += sep + cwdStr
 	}
-	if usage7d != "" {
-		output += sep + usage7d
+	if branchStr != "" {
+		identityFull += sep + branchStr
 	}
-	if usageExtra != "" {
-		output += sep + usageExtra
-	}
+
+	output := renderOutput(identityFull, contextBar, usage5h, usage7d, usageExtra, hasSubBars)
 
 	// Leading reset clears stale ANSI state from previous renders.
 	// Non-breaking spaces prevent the terminal from collapsing whitespace.
