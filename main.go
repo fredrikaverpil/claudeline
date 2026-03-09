@@ -242,16 +242,16 @@ func run(cfg config) error {
 		}
 		if fetchErr == nil && usage != nil {
 			now := time.Now()
-			// 5-hour bar with label.
+			// 5-hour bar.
 			pct5 := int(math.Round(usage.FiveHour.Utilization))
-			usage5h = "5h " + bar(pct5, quotaColor)
+			usage5h = bar(pct5, quotaColor)
 			if reset := formatResetTime(usage.FiveHour.ResetsAt, now); reset != "" {
 				usage5h += " (" + reset + ")"
 			}
 
-			// 7-day bar with label, plus per-model sub-bars.
+			// 7-day bar, plus per-model sub-bars.
 			pct7 := int(math.Round(usage.SevenDay.Utilization))
-			usage7d = "7d " + bar(pct7, quotaColor)
+			usage7d = bar(pct7, quotaColor)
 			if reset := formatResetTime(usage.SevenDay.ResetsAt, now); reset != "" {
 				usage7d += " (" + reset + ")"
 			}
@@ -273,6 +273,12 @@ func run(cfg config) error {
 
 			// Extra usage.
 			usageExtra = formatExtraUsage(usage.ExtraUsage)
+
+			// Add labels only in multi-line mode.
+			if hasSubBars || usageExtra != "" {
+				usage5h = "5h " + usage5h
+				usage7d = "7d " + usage7d
+			}
 		}
 	}
 
