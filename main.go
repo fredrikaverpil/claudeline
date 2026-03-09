@@ -52,8 +52,10 @@ const (
 )
 
 var (
-	debugLogFile   = filepath.Join(tempDir(), "claudeline-debug.log")
-	errRateLimited = errors.New("rate limited")
+	debugLogFile         = filepath.Join(tempDir(), "claudeline-debug.log")
+	errRateLimited       = errors.New("rate limited")
+	errCachedRateLimited = errors.New("cached rate limit")
+	errCachedFailure     = errors.New("cached failure")
 )
 
 // stdinData is the JSON structure received from Claude Code via stdin.
@@ -464,8 +466,15 @@ func compactName(name string, maxLen int) string {
 // fetchUsage fetches usage data from the API with file-based caching.
 func fetchUsage(ctx context.Context, token string) (*usageResponse, error) {
 	// Check cache.
-	if cached, err := readCache(); err == nil {
+	cached, err := readCache()
+	if err == nil {
 		return cached, nil
+	}
+	// Respect cached rate limit and failure TTLs — don't re-fetch
+	// during the cooldown window, as that would reset the TTL on
+	// each failed attempt and prevent recovery.
+	if errors.Is(err, errCachedRateLimited) || errors.Is(err, errCachedFailure) {
+		return nil, err
 	}
 
 	// Fetch from API.
@@ -500,10 +509,10 @@ func readCache() (*usageResponse, error) {
 		return &usage, nil
 	}
 	if !entry.OK && entry.RateLimited && age < cacheTTLRateLimit {
-		return nil, errors.New("cached rate limit")
+		return nil, errCachedRateLimited
 	}
 	if !entry.OK && age < cacheTTLFail {
-		return nil, errors.New("cached failure")
+		return nil, errCachedFailure
 	}
 
 	return nil, errors.New("cache expired")
