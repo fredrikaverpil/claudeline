@@ -448,8 +448,8 @@ func TestUsageResponseUnmarshal(t *testing.T) {
 				"extra_usage": {"is_enabled": true, "monthly_limit": 5000, "used_credits": 1234, "utilization": null}
 			}`,
 			want: usageResponse{
-				FiveHour: quotaLimit{Utilization: 8.0, ResetsAt: "2026-03-09T11:00:00+00:00"},
-				SevenDay: quotaLimit{Utilization: 31.0, ResetsAt: "2026-03-15T08:00:00+00:00"},
+				FiveHour:       quotaLimit{Utilization: 8.0, ResetsAt: "2026-03-09T11:00:00+00:00"},
+				SevenDay:       quotaLimit{Utilization: 31.0, ResetsAt: "2026-03-15T08:00:00+00:00"},
 				SevenDaySonnet: &quotaLimit{Utilization: 12, ResetsAt: "2026-03-09T13:00:00+00:00"},
 				SevenDayOpus:   &quotaLimit{Utilization: 45, ResetsAt: "2026-03-09T14:00:00+00:00"},
 				SevenDayCowork: &quotaLimit{Utilization: 5, ResetsAt: "2026-03-10T08:00:00+00:00"},
@@ -732,7 +732,8 @@ func TestFormatResetTime(t *testing.T) {
 	if todayResult == "" {
 		t.Fatal("formatResetTime returned empty for valid today timestamp")
 	}
-	if strings.Contains(todayResult, "Mon") || strings.Contains(todayResult, "Sun") || strings.Contains(todayResult, "Tue") {
+	if strings.Contains(todayResult, "Mon") || strings.Contains(todayResult, "Sun") ||
+		strings.Contains(todayResult, "Tue") {
 		t.Errorf("today reset should not contain day name, got %q", todayResult)
 	}
 
