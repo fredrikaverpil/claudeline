@@ -304,6 +304,51 @@ func run(cfg config) error {
 	return err
 }
 
+// renderOutput builds the final status line output. Uses two lines when
+// per-model sub-bars or extra usage are present; single line otherwise.
+func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string, hasSubBars bool) string {
+	sep := dim + " │ " + ansiReset
+	multiLine := hasSubBars || usageExtra != ""
+
+	// Line 1: identity + context [+ extra usage].
+	line1 := identity + sep + contextBar
+	if multiLine {
+		if usageExtra != "" {
+			line1 += sep + usageExtra
+		}
+	} else {
+		// Single line: append quota bars inline.
+		if usage5h != "" {
+			line1 += sep + usage5h
+		}
+		if usage7d != "" {
+			line1 += sep + usage7d
+		}
+	}
+
+	if !multiLine {
+		return line1
+	}
+
+	// Line 2: quota bars.
+	var line2 string
+	if usage5h != "" {
+		line2 = usage5h
+	}
+	if usage7d != "" {
+		if line2 != "" {
+			line2 += sep + usage7d
+		} else {
+			line2 = usage7d
+		}
+	}
+
+	if line2 != "" {
+		return line1 + "\n" + line2
+	}
+	return line1
+}
+
 // buildIdentity returns the "[Model | Plan]" segment.
 func buildIdentity(model, plan string) string {
 	switch {
