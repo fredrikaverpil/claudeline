@@ -78,16 +78,28 @@ type credentials struct {
 	} `json:"claudeAiOauth"`
 }
 
+// quotaLimit is a single usage quota with utilization percentage and reset time.
+type quotaLimit struct {
+	Utilization float64 `json:"utilization"`
+	ResetsAt    string  `json:"resets_at"`
+}
+
+// extraUsage is the pay-as-you-go overage info.
+type extraUsage struct {
+	IsEnabled    bool     `json:"is_enabled"`
+	MonthlyLimit *float64 `json:"monthly_limit"`
+	UsedCredits  *float64 `json:"used_credits"`
+}
+
 // usageResponse is the API response from the usage endpoint.
 type usageResponse struct {
-	FiveHour struct {
-		Utilization float64 `json:"utilization"`
-		ResetsAt    string  `json:"resets_at"`
-	} `json:"five_hour"`
-	SevenDay struct {
-		Utilization float64 `json:"utilization"`
-		ResetsAt    string  `json:"resets_at"`
-	} `json:"seven_day"`
+	FiveHour         quotaLimit  `json:"five_hour"`
+	SevenDay         quotaLimit  `json:"seven_day"`
+	SevenDaySonnet   *quotaLimit `json:"seven_day_sonnet"`
+	SevenDayOpus     *quotaLimit `json:"seven_day_opus"`
+	SevenDayOAuthApp *quotaLimit `json:"seven_day_oauth_apps"`
+	SevenDayCowork   *quotaLimit `json:"seven_day_cowork"`
+	ExtraUsage       *extraUsage `json:"extra_usage"`
 }
 
 // cacheEntry is the file-based cache structure.
@@ -215,7 +227,7 @@ func run(cfg config) error {
 	}
 
 	// Usage bars.
-	var usage5h, usage7d string
+	var usage5h, usage7d, usageExtra string
 	token := creds.ClaudeAiOauth.AccessToken
 	if token == "" {
 		log.Printf("usage: no access token found")
@@ -228,46 +240,86 @@ func run(cfg config) error {
 			log.Printf("usage: %v", fetchErr)
 		}
 		if fetchErr == nil && usage != nil {
+			now := time.Now()
+			// 5-hour bar.
 			pct5 := int(math.Round(usage.FiveHour.Utilization))
 			usage5h = bar(pct5, quotaColor)
-			if reset := formatLocalTime(usage.FiveHour.ResetsAt, "15:04"); reset != "" {
+			if reset := formatResetTime(usage.FiveHour.ResetsAt, now); reset != "" {
 				usage5h += " (" + reset + ")"
 			}
 
+			// 7-day bar, plus per-model sub-bars.
 			pct7 := int(math.Round(usage.SevenDay.Utilization))
 			usage7d = bar(pct7, quotaColor)
-			if reset := formatLocalTime(usage.SevenDay.ResetsAt, "Mon 15:04"); reset != "" {
+			if reset := formatResetTime(usage.SevenDay.ResetsAt, now); reset != "" {
 				usage7d += " (" + reset + ")"
 			}
+			subSep := dim + " · " + ansiReset
+			for _, sub := range []struct {
+				q     *quotaLimit
+				label string
+			}{
+				{usage.SevenDaySonnet, "sonnet"},
+				{usage.SevenDayOpus, "opus"},
+				{usage.SevenDayCowork, "cowork"},
+				{usage.SevenDayOAuthApp, "oauth"},
+			} {
+				if s := formatQuotaSubBar(sub.q, sub.label, now); s != "" {
+					usage7d += subSep + s
+				}
+			}
+
+			// Extra usage.
+			usageExtra = formatExtraUsage(usage.ExtraUsage)
 		}
 	}
 
 	// Render output.
-	sep := dim + " │ " + ansiReset
-	output := identity
+	var cwdStr, branchStr string
 	if cfg.showCwd {
 		if name := cwdName(data.Cwd, cfg.cwdMaxLen); name != "" {
-			output += sep + yellow + name + ansiReset
+			cwdStr = yellow + name + ansiReset
 		}
 	}
 	if cfg.showGitBranch {
 		if branch := compactName(getBranch(), cfg.gitBranchMaxLen); branch != "" {
-			output += sep + magenta + branch + ansiReset
+			branchStr = magenta + branch + ansiReset
 		}
 	}
-	output += sep + contextBar
-	if usage5h != "" {
-		output += sep + usage5h
+
+	sep := dim + " │ " + ansiReset
+	identityFull := identity
+	if cwdStr != "" {
+		identityFull += sep + cwdStr
 	}
-	if usage7d != "" {
-		output += sep + usage7d
+	if branchStr != "" {
+		identityFull += sep + branchStr
 	}
+
+	output := renderOutput(identityFull, contextBar, usage5h, usage7d, usageExtra)
 
 	// Leading reset clears stale ANSI state from previous renders.
 	// Non-breaking spaces prevent the terminal from collapsing whitespace.
 	output = ansiReset + strings.ReplaceAll(output, " ", "\u00A0")
 	_, err = fmt.Fprintln(os.Stdout, output)
 	return err
+}
+
+// renderOutput assembles all segments into a single-line status output.
+func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string) string {
+	sep := dim + " │ " + ansiReset
+
+	out := identity + sep + contextBar
+	if usage5h != "" {
+		out += sep + usage5h
+	}
+	if usage7d != "" {
+		out += sep + usage7d
+	}
+	if usageExtra != "" {
+		out += sep + usageExtra
+	}
+	return out
 }
 
 // buildIdentity returns the "[Model | Plan]" segment.
@@ -344,8 +396,42 @@ func bar(pct int, colorFn func(int) string) string {
 	)
 }
 
-// formatLocalTime parses an ISO 8601 timestamp and formats it in the local timezone.
-func formatLocalTime(iso, layout string) string {
+// formatExtraUsage returns the "$used/$limit" string for pay-as-you-go overage.
+// Returns "" when extra usage is nil, disabled, or missing dollar amounts.
+func formatExtraUsage(extra *extraUsage) string {
+	if extra == nil || !extra.IsEnabled || extra.MonthlyLimit == nil || extra.UsedCredits == nil {
+		return ""
+	}
+	used := int(*extra.UsedCredits) / 100
+	limit := int(*extra.MonthlyLimit) / 100
+	if used == 0 {
+		return ""
+	}
+	s := fmt.Sprintf("$%d/$%d", used, limit)
+	// Color red when 80%+ of limit is used.
+	if limit > 0 && used*100/limit >= 80 {
+		return red + s + ansiReset
+	}
+	return s
+}
+
+// formatQuotaSubBar renders a per-model quota bar with a trailing label.
+// Returns "" when the quota is nil.
+func formatQuotaSubBar(q *quotaLimit, label string, now time.Time) string {
+	if q == nil {
+		return ""
+	}
+	pct := int(math.Round(q.Utilization))
+	s := bar(pct, quotaColor) + " " + label
+	if reset := formatResetTime(q.ResetsAt, now); reset != "" {
+		s += " (" + reset + ")"
+	}
+	return s
+}
+
+// formatResetTime formats a reset timestamp, showing just the time if it's
+// today, or the day and time if it's a different day.
+func formatResetTime(iso string, now time.Time) string {
 	if iso == "" {
 		return ""
 	}
@@ -353,7 +439,13 @@ func formatLocalTime(iso, layout string) string {
 	if err != nil {
 		return ""
 	}
-	return target.Local().Format(layout)
+	local := target.Local()
+	y1, m1, d1 := now.Local().Date()
+	y2, m2, d2 := local.Date()
+	if y1 == y2 && m1 == m2 && d1 == d2 {
+		return local.Format("15:04")
+	}
+	return local.Format("Mon 15:04")
 }
 
 // keychainServiceName returns the macOS Keychain service name used by Claude Code.
@@ -629,8 +721,14 @@ func doUsageRequest(ctx context.Context, token string) (_ *usageResponse, rawRet
 		return nil, "", fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("read response body: %w", err)
+	}
+	log.Printf("usage response: %s", body)
+
 	var usage usageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
+	if err := json.Unmarshal(body, &usage); err != nil {
 		return nil, "", fmt.Errorf("decode response: %w", err)
 	}
 	return &usage, "", nil
