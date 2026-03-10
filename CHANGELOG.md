@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/fredrikaverpil/claudeline/compare/v0.8.1...v0.9.0) (2026-03-10)
+
+
+### Features
+
+* per-model quota sub-bars and extra usage display ([#41](https://github.com/fredrikaverpil/claudeline/issues/41)) ([906fe23](https://github.com/fredrikaverpil/claudeline/commit/906fe2323c38a29e9d2decaae44f788c48eda2fc))
+
+
+### Bug Fixes
+
+* **debug:** isolate debug log file path per CLAUDE_CONFIG_DIR profile ([#45](https://github.com/fredrikaverpil/claudeline/issues/45)) ([2a3bc85](https://github.com/fredrikaverpil/claudeline/commit/2a3bc85727ad341cb9b5426f434a82d185aec3b9))
+
 ## [0.8.1](https://github.com/fredrikaverpil/claudeline/compare/v0.8.0...v0.8.1) (2026-03-09)
 
 
