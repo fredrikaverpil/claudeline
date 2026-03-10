@@ -271,10 +271,6 @@ func run(cfg config) error {
 
 			// Extra usage.
 			usageExtra = formatExtraUsage(usage.ExtraUsage)
-
-			// Add labels to distinguish the bars.
-			usage5h = "5h " + usage5h
-			usage7d = "7d " + usage7d
 		}
 	}
 
@@ -310,24 +306,21 @@ func run(cfg config) error {
 }
 
 // renderOutput builds the final status line output. Uses two lines when
-// per-model sub-bars or extra usage are present; single line otherwise.
+// renderOutput assembles all segments into a single-line status output.
 func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string) string {
 	sep := dim + " │ " + ansiReset
 
-	// Line 1: identity + context + 5h + extra usage.
-	line1 := identity + sep + contextBar
+	out := identity + sep + contextBar
 	if usage5h != "" {
-		line1 += sep + usage5h
+		out += sep + usage5h
+	}
+	if usage7d != "" {
+		out += sep + usage7d
 	}
 	if usageExtra != "" {
-		line1 += sep + usageExtra
+		out += sep + usageExtra
 	}
-
-	// Line 2: 7d bar (with sub-bars when present).
-	if usage7d != "" {
-		return line1 + "\n" + usage7d
-	}
-	return line1
+	return out
 }
 
 // buildIdentity returns the "[Model | Plan]" segment.

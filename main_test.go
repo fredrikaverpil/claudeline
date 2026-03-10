@@ -634,6 +634,11 @@ func TestFormatQuotaSubBar(t *testing.T) {
 
 func TestRenderOutput(t *testing.T) {
 	subSep := dim + " · " + ansiReset
+	sep := dim + " │ " + ansiReset
+	ident := cyan + "[Opus 4.6 | Pro]" + ansiReset
+	identCwd := ident + sep + yellow + "myproject" + ansiReset
+	identBranch := ident + sep + magenta + "feat/foo" + ansiReset
+	identCwdBranch := ident + sep + yellow + "myproject" + ansiReset + sep + magenta + "feat/foo" + ansiReset
 
 	tests := []struct {
 		name       string
@@ -642,84 +647,100 @@ func TestRenderOutput(t *testing.T) {
 		usage5h    string
 		usage7d    string
 		usageExtra string
-		wantLines  int
+		want       string
 	}{
+		// Minimal: identity + context only.
 		{
-			name:       "no usage - single line",
-			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
+			name:       "identity and context only",
+			identity:   ident,
 			contextBar: "█░░░░ 23%",
-			wantLines:  1,
+			want:       ident + sep + "█░░░░ 23%",
+		},
+		// Identity variants with cwd/branch.
+		{
+			name:       "with cwd",
+			identity:   identCwd,
+			contextBar: "█░░░░ 23%",
+			want:       identCwd + sep + "█░░░░ 23%",
 		},
 		{
-			name:       "5h only - single line",
-			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
+			name:       "with git branch",
+			identity:   identBranch,
 			contextBar: "█░░░░ 23%",
-			usage5h:    "5h ░░░░░ 9% (13:00)",
-			wantLines:  1,
+			want:       identBranch + sep + "█░░░░ 23%",
 		},
 		{
-			name:       "5h and 7d - two lines",
-			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
+			name:       "with cwd and git branch",
+			identity:   identCwdBranch,
 			contextBar: "█░░░░ 23%",
-			usage5h:    "5h ░░░░░ 9% (13:00)",
-			usage7d:    "7d █░░░░ 31% (Sun 09:00)",
-			wantLines:  2,
+			want:       identCwdBranch + sep + "█░░░░ 23%",
+		},
+		// Usage bar combinations.
+		{
+			name:       "5h only",
+			identity:   ident,
+			contextBar: "█░░░░ 23%",
+			usage5h:    "░░░░░ 9% (13:00)",
+			want:       ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)",
 		},
 		{
-			name:       "with extra usage - two lines",
-			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
+			name:       "5h and 7d",
+			identity:   ident,
 			contextBar: "█░░░░ 23%",
-			usage5h:    "5h ░░░░░ 9% (13:00)",
-			usage7d:    "7d █░░░░ 31% (Sun 09:00)",
-			usageExtra: "$0/$100",
-			wantLines:  2,
+			usage5h:    "░░░░░ 9% (13:00)",
+			usage7d:    "█░░░░ 31% (Sun 09:00)",
+			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
+				"█░░░░ 31% (Sun 09:00)",
 		},
 		{
-			name:       "with sub-bars - two lines",
-			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
+			name:       "7d with sub-bars",
+			identity:   ident,
 			contextBar: "█░░░░ 23%",
-			usage5h:    "5h ░░░░░ 9% (13:00)",
-			usage7d:    "7d █░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
-			wantLines:  2,
+			usage5h:    "░░░░░ 9% (13:00)",
+			usage7d:    "█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
+			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
+				"█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
+		},
+		// Extra usage variants.
+		{
+			name:       "with extra usage",
+			identity:   ident,
+			contextBar: "█░░░░ 23%",
+			usage5h:    "░░░░░ 9% (13:00)",
+			usage7d:    "█░░░░ 31% (Sun 09:00)",
+			usageExtra: "$40/$50",
+			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
+				"█░░░░ 31% (Sun 09:00)" + sep + "$40/$50",
 		},
 		{
-			name:       "with sub-bars and extra - two lines",
-			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
+			name:       "with sub-bars and extra usage",
+			identity:   ident,
 			contextBar: "█░░░░ 23%",
-			usage5h:    "5h ░░░░░ 9% (13:00)",
-			usage7d:    "7d █░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
-			usageExtra: "$0/$100",
-			wantLines:  2,
+			usage5h:    "░░░░░ 9% (13:00)",
+			usage7d:    "█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
+			usageExtra: red + "$45/$50" + ansiReset,
+			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
+				"█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)" + sep +
+				red + "$45/$50" + ansiReset,
+		},
+		// Full combination: cwd + branch + all bars + extra.
+		{
+			name:       "all segments",
+			identity:   identCwdBranch,
+			contextBar: "██░░░ 42%",
+			usage5h:    "███░░ 62% (15:00)",
+			usage7d:    "█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)",
+			usageExtra: "$12/$50",
+			want: identCwdBranch + sep + "██░░░ 42%" + sep + "███░░ 62% (15:00)" + sep +
+				"█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)" + sep + "$12/$50",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := renderOutput(tt.identity, tt.contextBar, tt.usage5h, tt.usage7d, tt.usageExtra)
-			lines := strings.Count(got, "\n") + 1
-			if lines != tt.wantLines {
-				t.Errorf("renderOutput() has %d lines, want %d\noutput: %q", lines, tt.wantLines, got)
-			}
-			// Line 1 should always contain identity, context, and 5h bar.
-			firstLine := strings.SplitN(got, "\n", 2)[0]
-			if !strings.Contains(firstLine, tt.identity) {
-				t.Errorf("line 1 missing identity: %q", firstLine)
-			}
-			if !strings.Contains(firstLine, tt.contextBar) {
-				t.Errorf("line 1 missing context bar: %q", firstLine)
-			}
-			if tt.usage5h != "" && !strings.Contains(firstLine, tt.usage5h) {
-				t.Errorf("line 1 missing 5h bar: %q", firstLine)
-			}
-			if tt.usageExtra != "" && !strings.Contains(firstLine, tt.usageExtra) {
-				t.Errorf("line 1 missing extra usage: %q", firstLine)
-			}
-			// Line 2 should have 7d bar when present.
-			if tt.wantLines == 2 {
-				secondLine := strings.SplitN(got, "\n", 2)[1]
-				if tt.usage7d != "" && !strings.Contains(secondLine, tt.usage7d) {
-					t.Errorf("line 2 missing 7d bar: %q", secondLine)
-				}
+			if got != tt.want {
+				t.Errorf("renderOutput() =\n  %q\nwant\n  %q", got, tt.want)
 			}
 		})
 	}
