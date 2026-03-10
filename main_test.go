@@ -560,14 +560,19 @@ func TestFormatExtraUsage(t *testing.T) {
 			want:  "",
 		},
 		{
-			name:  "enabled with zero usage",
+			name:  "enabled with zero usage - hidden",
 			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(0))},
-			want:  "$0/$50",
+			want:  "",
 		},
 		{
-			name:  "enabled with usage",
+			name:  "enabled with usage below threshold",
 			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(1234))},
 			want:  "$12/$50",
+		},
+		{
+			name:  "enabled at 80% - red",
+			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(4000))},
+			want:  red + "$40/$50" + ansiReset,
 		},
 		{
 			name:  "enabled with nil fields",
@@ -637,63 +642,65 @@ func TestRenderOutput(t *testing.T) {
 		usage5h    string
 		usage7d    string
 		usageExtra string
-		hasSubBars bool
 		wantLines  int
 	}{
 		{
-			name:       "rate limited - single line, no usage",
+			name:       "no usage - single line",
 			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
 			contextBar: "█░░░░ 23%",
 			wantLines:  1,
 		},
 		{
-			name:       "pro basic - single line with 5h and 7d",
+			name:       "5h only - single line",
 			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
 			contextBar: "█░░░░ 23%",
-			usage5h:    "░░░░░ 9% (13:00)",
-			usage7d:    "█░░░░ 31% (Sun 09:00)",
-			hasSubBars: false,
+			usage5h:    "5h ░░░░░ 9% (13:00)",
 			wantLines:  1,
 		},
 		{
-			name:       "pro with extra usage - two lines",
+			name:       "5h and 7d - two lines",
+			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
+			contextBar: "█░░░░ 23%",
+			usage5h:    "5h ░░░░░ 9% (13:00)",
+			usage7d:    "7d █░░░░ 31% (Sun 09:00)",
+			wantLines:  2,
+		},
+		{
+			name:       "with extra usage - two lines",
 			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
 			contextBar: "█░░░░ 23%",
 			usage5h:    "5h ░░░░░ 9% (13:00)",
 			usage7d:    "7d █░░░░ 31% (Sun 09:00)",
 			usageExtra: "$0/$100",
-			hasSubBars: false,
 			wantLines:  2,
 		},
 		{
-			name:       "teams with sub-bars - two lines",
+			name:       "with sub-bars - two lines",
 			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
 			contextBar: "█░░░░ 23%",
 			usage5h:    "5h ░░░░░ 9% (13:00)",
 			usage7d:    "7d █░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
-			hasSubBars: true,
 			wantLines:  2,
 		},
 		{
-			name:       "teams with sub-bars and extra - two lines",
+			name:       "with sub-bars and extra - two lines",
 			identity:   cyan + "[Opus 4.6 | Pro]" + ansiReset,
 			contextBar: "█░░░░ 23%",
 			usage5h:    "5h ░░░░░ 9% (13:00)",
 			usage7d:    "7d █░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
 			usageExtra: "$0/$100",
-			hasSubBars: true,
 			wantLines:  2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := renderOutput(tt.identity, tt.contextBar, tt.usage5h, tt.usage7d, tt.usageExtra, tt.hasSubBars)
+			got := renderOutput(tt.identity, tt.contextBar, tt.usage5h, tt.usage7d, tt.usageExtra)
 			lines := strings.Count(got, "\n") + 1
 			if lines != tt.wantLines {
 				t.Errorf("renderOutput() has %d lines, want %d\noutput: %q", lines, tt.wantLines, got)
 			}
-			// Line 1 should always contain identity and context.
+			// Line 1 should always contain identity, context, and 5h bar.
 			firstLine := strings.SplitN(got, "\n", 2)[0]
 			if !strings.Contains(firstLine, tt.identity) {
 				t.Errorf("line 1 missing identity: %q", firstLine)
@@ -701,24 +708,17 @@ func TestRenderOutput(t *testing.T) {
 			if !strings.Contains(firstLine, tt.contextBar) {
 				t.Errorf("line 1 missing context bar: %q", firstLine)
 			}
-			// Extra usage should be on line 1 when present.
+			if tt.usage5h != "" && !strings.Contains(firstLine, tt.usage5h) {
+				t.Errorf("line 1 missing 5h bar: %q", firstLine)
+			}
 			if tt.usageExtra != "" && !strings.Contains(firstLine, tt.usageExtra) {
 				t.Errorf("line 1 missing extra usage: %q", firstLine)
 			}
-			// When two lines, line 2 should have quota bars.
+			// Line 2 should have 7d bar when present.
 			if tt.wantLines == 2 {
 				secondLine := strings.SplitN(got, "\n", 2)[1]
-				if tt.usage5h != "" && !strings.Contains(secondLine, tt.usage5h) {
-					t.Errorf("line 2 missing 5h bar: %q", secondLine)
-				}
 				if tt.usage7d != "" && !strings.Contains(secondLine, tt.usage7d) {
 					t.Errorf("line 2 missing 7d bar: %q", secondLine)
-				}
-			}
-			// When single line, quota bars should be on line 1.
-			if tt.wantLines == 1 && tt.usage5h != "" {
-				if !strings.Contains(firstLine, tt.usage5h) {
-					t.Errorf("line 1 missing 5h bar in single-line mode: %q", firstLine)
 				}
 			}
 		})

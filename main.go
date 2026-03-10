@@ -228,7 +228,6 @@ func run(cfg config) error {
 
 	// Usage bars.
 	var usage5h, usage7d, usageExtra string
-	var hasSubBars bool
 	token := creds.ClaudeAiOauth.AccessToken
 	if token == "" {
 		log.Printf("usage: no access token found")
@@ -267,18 +266,15 @@ func run(cfg config) error {
 			} {
 				if s := formatQuotaSubBar(sub.q, sub.label, now); s != "" {
 					usage7d += subSep + s
-					hasSubBars = true
 				}
 			}
 
 			// Extra usage.
 			usageExtra = formatExtraUsage(usage.ExtraUsage)
 
-			// Add labels only in multi-line mode.
-			if hasSubBars || usageExtra != "" {
-				usage5h = "5h " + usage5h
-				usage7d = "7d " + usage7d
-			}
+			// Add labels to distinguish the bars.
+			usage5h = "5h " + usage5h
+			usage7d = "7d " + usage7d
 		}
 	}
 
@@ -304,7 +300,7 @@ func run(cfg config) error {
 		identityFull += sep + branchStr
 	}
 
-	output := renderOutput(identityFull, contextBar, usage5h, usage7d, usageExtra, hasSubBars)
+	output := renderOutput(identityFull, contextBar, usage5h, usage7d, usageExtra)
 
 	// Leading reset clears stale ANSI state from previous renders.
 	// Non-breaking spaces prevent the terminal from collapsing whitespace.
@@ -315,45 +311,21 @@ func run(cfg config) error {
 
 // renderOutput builds the final status line output. Uses two lines when
 // per-model sub-bars or extra usage are present; single line otherwise.
-func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string, hasSubBars bool) string {
+func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string) string {
 	sep := dim + " │ " + ansiReset
-	multiLine := hasSubBars || usageExtra != ""
 
-	// Line 1: identity + context [+ extra usage].
+	// Line 1: identity + context + 5h + extra usage.
 	line1 := identity + sep + contextBar
-	if multiLine {
-		if usageExtra != "" {
-			line1 += sep + usageExtra
-		}
-	} else {
-		// Single line: append quota bars inline.
-		if usage5h != "" {
-			line1 += sep + usage5h
-		}
-		if usage7d != "" {
-			line1 += sep + usage7d
-		}
-	}
-
-	if !multiLine {
-		return line1
-	}
-
-	// Line 2: quota bars.
-	var line2 string
 	if usage5h != "" {
-		line2 = usage5h
+		line1 += sep + usage5h
 	}
-	if usage7d != "" {
-		if line2 != "" {
-			line2 += sep + usage7d
-		} else {
-			line2 = usage7d
-		}
+	if usageExtra != "" {
+		line1 += sep + usageExtra
 	}
 
-	if line2 != "" {
-		return line1 + "\n" + line2
+	// Line 2: 7d bar (with sub-bars when present).
+	if usage7d != "" {
+		return line1 + "\n" + usage7d
 	}
 	return line1
 }
@@ -440,7 +412,15 @@ func formatExtraUsage(extra *extraUsage) string {
 	}
 	used := int(*extra.UsedCredits) / 100
 	limit := int(*extra.MonthlyLimit) / 100
-	return fmt.Sprintf("$%d/$%d", used, limit)
+	if used == 0 {
+		return ""
+	}
+	s := fmt.Sprintf("$%d/$%d", used, limit)
+	// Color red when 80%+ of limit is used.
+	if limit > 0 && used*100/limit >= 80 {
+		return red + s + ansiReset
+	}
+	return s
 }
 
 // formatQuotaSubBar renders a per-model quota bar with a trailing label.
