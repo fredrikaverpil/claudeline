@@ -86,9 +86,9 @@ type quotaLimit struct {
 
 // extraUsage is the pay-as-you-go overage info.
 type extraUsage struct {
-	IsEnabled    bool `json:"is_enabled"`
-	MonthlyLimit *int `json:"monthly_limit"`
-	UsedCredits  *int `json:"used_credits"`
+	IsEnabled    bool     `json:"is_enabled"`
+	MonthlyLimit *float64 `json:"monthly_limit"`
+	UsedCredits  *float64 `json:"used_credits"`
 }
 
 // usageResponse is the API response from the usage endpoint.
@@ -438,8 +438,8 @@ func formatExtraUsage(extra *extraUsage) string {
 	if extra == nil || !extra.IsEnabled || extra.MonthlyLimit == nil || extra.UsedCredits == nil {
 		return ""
 	}
-	used := *extra.UsedCredits / 100
-	limit := *extra.MonthlyLimit / 100
+	used := int(*extra.UsedCredits) / 100
+	limit := int(*extra.MonthlyLimit) / 100
 	return fmt.Sprintf("$%d/$%d", used, limit)
 }
 
