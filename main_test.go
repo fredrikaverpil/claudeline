@@ -455,8 +455,8 @@ func TestUsageResponseUnmarshal(t *testing.T) {
 				SevenDayCowork: &quotaLimit{Utilization: 5, ResetsAt: "2026-03-10T08:00:00+00:00"},
 				ExtraUsage: &extraUsage{
 					IsEnabled:    true,
-					MonthlyLimit: new(5000),
-					UsedCredits:  new(1234),
+					MonthlyLimit: new(float64(5000)),
+					UsedCredits:  new(float64(1234)),
 				},
 			},
 		},
@@ -528,18 +528,18 @@ func assertExtraUsage(t *testing.T, got, want *extraUsage) {
 	if got.IsEnabled != want.IsEnabled {
 		t.Errorf("ExtraUsage.IsEnabled = %v, want %v", got.IsEnabled, want.IsEnabled)
 	}
-	assertIntPtr(t, "ExtraUsage.MonthlyLimit", got.MonthlyLimit, want.MonthlyLimit)
-	assertIntPtr(t, "ExtraUsage.UsedCredits", got.UsedCredits, want.UsedCredits)
+	assertFloat64Ptr(t, "ExtraUsage.MonthlyLimit", got.MonthlyLimit, want.MonthlyLimit)
+	assertFloat64Ptr(t, "ExtraUsage.UsedCredits", got.UsedCredits, want.UsedCredits)
 }
 
-func assertIntPtr(t *testing.T, name string, got, want *int) {
+func assertFloat64Ptr(t *testing.T, name string, got, want *float64) {
 	t.Helper()
 	if (got == nil) != (want == nil) {
 		t.Errorf("%s: got %v, want %v", name, got, want)
 		return
 	}
 	if got != nil && *got != *want {
-		t.Errorf("%s = %d, want %d", name, *got, *want)
+		t.Errorf("%s = %v, want %v", name, *got, *want)
 	}
 }
 
@@ -561,12 +561,12 @@ func TestFormatExtraUsage(t *testing.T) {
 		},
 		{
 			name:  "enabled with zero usage",
-			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(5000), UsedCredits: new(0)},
+			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(0))},
 			want:  "$0/$50",
 		},
 		{
 			name:  "enabled with usage",
-			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(5000), UsedCredits: new(1234)},
+			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(1234))},
 			want:  "$12/$50",
 		},
 		{
