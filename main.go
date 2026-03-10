@@ -305,7 +305,6 @@ func run(cfg config) error {
 	return err
 }
 
-// renderOutput builds the final status line output. Uses two lines when
 // renderOutput assembles all segments into a single-line status output.
 func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string) string {
 	sep := dim + " │ " + ansiReset
