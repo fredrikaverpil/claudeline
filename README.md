@@ -19,7 +19,7 @@ with no external dependencies (stdlib only).
 > [!NOTE]
 >
 > The 5-hour and 7-day quota bars require a Claude Code subscription (Pro, Max,
-> or Team). They are not available for free tier or API key users. The bars may
+> or Team). They are not available for free tier, Enterprise or API key users. The bars may
 > also disappear silently if the usage API is temporarily unavailable or rate
 > limited — use `-debug` to diagnose.
 
