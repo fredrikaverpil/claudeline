@@ -93,8 +93,8 @@ type extraUsage struct {
 
 // usageResponse is the API response from the usage endpoint.
 type usageResponse struct {
-	FiveHour         quotaLimit  `json:"five_hour"`
-	SevenDay         quotaLimit  `json:"seven_day"`
+	FiveHour         *quotaLimit `json:"five_hour"`
+	SevenDay         *quotaLimit `json:"seven_day"`
 	SevenDaySonnet   *quotaLimit `json:"seven_day_sonnet"`
 	SevenDayOpus     *quotaLimit `json:"seven_day_opus"`
 	SevenDayOAuthApp *quotaLimit `json:"seven_day_oauth_apps"`
@@ -232,7 +232,7 @@ func run(cfg config) error {
 	if token == "" {
 		log.Printf("usage: no access token found")
 	} else if plan == "" {
-		log.Printf("usage: unknown subscription type %q, expected pro/max/team", creds.ClaudeAiOauth.SubscriptionType)
+		log.Printf("usage: unknown subscription type %q, expected pro/max/team/enterprise", creds.ClaudeAiOauth.SubscriptionType)
 	}
 	if token != "" && plan != "" {
 		usage, fetchErr := fetchUsage(ctx, token)
@@ -241,31 +241,35 @@ func run(cfg config) error {
 		}
 		if fetchErr == nil && usage != nil {
 			now := time.Now()
-			// 5-hour bar.
-			pct5 := int(math.Round(usage.FiveHour.Utilization))
-			usage5h = bar(pct5, quotaColor)
-			if reset := formatResetTime(usage.FiveHour.ResetsAt, now); reset != "" {
-				usage5h += " (" + reset + ")"
+			// 5-hour bar (null on enterprise).
+			if usage.FiveHour != nil {
+				pct5 := int(math.Round(usage.FiveHour.Utilization))
+				usage5h = bar(pct5, quotaColor)
+				if reset := formatResetTime(usage.FiveHour.ResetsAt, now); reset != "" {
+					usage5h += " (" + reset + ")"
+				}
 			}
 
-			// 7-day bar, plus per-model sub-bars.
-			pct7 := int(math.Round(usage.SevenDay.Utilization))
-			usage7d = bar(pct7, quotaColor)
-			if reset := formatResetTime(usage.SevenDay.ResetsAt, now); reset != "" {
-				usage7d += " (" + reset + ")"
-			}
-			subSep := dim + " · " + ansiReset
-			for _, sub := range []struct {
-				q     *quotaLimit
-				label string
-			}{
-				{usage.SevenDaySonnet, "sonnet"},
-				{usage.SevenDayOpus, "opus"},
-				{usage.SevenDayCowork, "cowork"},
-				{usage.SevenDayOAuthApp, "oauth"},
-			} {
-				if s := formatQuotaSubBar(sub.q, sub.label, now); s != "" {
-					usage7d += subSep + s
+			// 7-day bar, plus per-model sub-bars (null on enterprise).
+			if usage.SevenDay != nil {
+				pct7 := int(math.Round(usage.SevenDay.Utilization))
+				usage7d = bar(pct7, quotaColor)
+				if reset := formatResetTime(usage.SevenDay.ResetsAt, now); reset != "" {
+					usage7d += " (" + reset + ")"
+				}
+				subSep := dim + " · " + ansiReset
+				for _, sub := range []struct {
+					q     *quotaLimit
+					label string
+				}{
+					{usage.SevenDaySonnet, "sonnet"},
+					{usage.SevenDayOpus, "opus"},
+					{usage.SevenDayCowork, "cowork"},
+					{usage.SevenDayOAuthApp, "oauth"},
+				} {
+					if s := formatQuotaSubBar(sub.q, sub.label, now); s != "" {
+						usage7d += subSep + s
+					}
 				}
 			}
 
@@ -344,6 +348,8 @@ func planName(subType string) string {
 		return "Pro"
 	case strings.Contains(lower, "team"):
 		return "Team"
+	case strings.Contains(lower, "enterprise"):
+		return "Enterprise"
 	default:
 		return ""
 	}

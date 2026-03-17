@@ -448,8 +448,8 @@ func TestUsageResponseUnmarshal(t *testing.T) {
 				"extra_usage": {"is_enabled": true, "monthly_limit": 5000, "used_credits": 1234, "utilization": null}
 			}`,
 			want: usageResponse{
-				FiveHour:       quotaLimit{Utilization: 8.0, ResetsAt: "2026-03-09T11:00:00+00:00"},
-				SevenDay:       quotaLimit{Utilization: 31.0, ResetsAt: "2026-03-15T08:00:00+00:00"},
+				FiveHour:       &quotaLimit{Utilization: 8.0, ResetsAt: "2026-03-09T11:00:00+00:00"},
+				SevenDay:       &quotaLimit{Utilization: 31.0, ResetsAt: "2026-03-15T08:00:00+00:00"},
 				SevenDaySonnet: &quotaLimit{Utilization: 12, ResetsAt: "2026-03-09T13:00:00+00:00"},
 				SevenDayOpus:   &quotaLimit{Utilization: 45, ResetsAt: "2026-03-09T14:00:00+00:00"},
 				SevenDayCowork: &quotaLimit{Utilization: 5, ResetsAt: "2026-03-10T08:00:00+00:00"},
@@ -473,10 +473,30 @@ func TestUsageResponseUnmarshal(t *testing.T) {
 				"extra_usage": {"is_enabled": false, "monthly_limit": null, "used_credits": null, "utilization": null}
 			}`,
 			want: usageResponse{
-				FiveHour: quotaLimit{Utilization: 0},
-				SevenDay: quotaLimit{Utilization: 14, ResetsAt: "2026-03-13T08:00:00+00:00"},
+				FiveHour: &quotaLimit{Utilization: 0},
+				SevenDay: &quotaLimit{Utilization: 14, ResetsAt: "2026-03-13T08:00:00+00:00"},
 				ExtraUsage: &extraUsage{
 					IsEnabled: false,
+				},
+			},
+		},
+		{
+			name: "enterprise response with null quotas",
+			input: `{
+				"five_hour": null,
+				"seven_day": null,
+				"seven_day_sonnet": null,
+				"seven_day_opus": null,
+				"seven_day_oauth_apps": null,
+				"seven_day_cowork": null,
+				"iguana_necktie": null,
+				"extra_usage": {"is_enabled": true, "monthly_limit": 10000, "used_credits": 248, "utilization": 2.48}
+			}`,
+			want: usageResponse{
+				ExtraUsage: &extraUsage{
+					IsEnabled:    true,
+					MonthlyLimit: new(float64(10000)),
+					UsedCredits:  new(float64(248)),
 				},
 			},
 		},
@@ -488,12 +508,8 @@ func TestUsageResponseUnmarshal(t *testing.T) {
 			if err := json.Unmarshal([]byte(tt.input), &got); err != nil {
 				t.Fatalf("Unmarshal() error = %v", err)
 			}
-			if got.FiveHour != tt.want.FiveHour {
-				t.Errorf("FiveHour = %+v, want %+v", got.FiveHour, tt.want.FiveHour)
-			}
-			if got.SevenDay != tt.want.SevenDay {
-				t.Errorf("SevenDay = %+v, want %+v", got.SevenDay, tt.want.SevenDay)
-			}
+			assertQuotaLimitPtr(t, "FiveHour", got.FiveHour, tt.want.FiveHour)
+			assertQuotaLimitPtr(t, "SevenDay", got.SevenDay, tt.want.SevenDay)
 			assertQuotaLimitPtr(t, "SevenDaySonnet", got.SevenDaySonnet, tt.want.SevenDaySonnet)
 			assertQuotaLimitPtr(t, "SevenDayOpus", got.SevenDayOpus, tt.want.SevenDayOpus)
 			assertQuotaLimitPtr(t, "SevenDayCowork", got.SevenDayCowork, tt.want.SevenDayCowork)
