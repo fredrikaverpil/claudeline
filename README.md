@@ -9,7 +9,7 @@ A minimalistic and opinionated Claude Code status line.
 <img width="930" height="112" alt="claudeline" src="https://github.com/user-attachments/assets/51ab601c-760a-41da-8dca-d682bf7ad138" />
 
 
-<img width="930" height="112" alt="image" src="https://github.com/user-attachments/assets/ce5cf8e1-9089-4a68-b82b-9527be87b2c8" />
+<img width="930" height="112" alt="image" src="https://github.com/user-attachments/assets/8728028b-8cbb-4113-af88-3bbf4e6ab23b" />
 
 
 It displays the current Anthropic model, subscription plan, context window
