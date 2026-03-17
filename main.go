@@ -241,7 +241,7 @@ func run(cfg config) error {
 		}
 		if fetchErr == nil && usage != nil {
 			now := time.Now()
-			// 5-hour bar (skip for enterprise when null).
+			// 5-hour bar (null on enterprise).
 			if usage.FiveHour != nil {
 				pct5 := int(math.Round(usage.FiveHour.Utilization))
 				usage5h = bar(pct5, quotaColor)
@@ -250,7 +250,7 @@ func run(cfg config) error {
 				}
 			}
 
-			// 7-day bar, plus per-model sub-bars (skip for enterprise when null).
+			// 7-day bar, plus per-model sub-bars (null on enterprise).
 			if usage.SevenDay != nil {
 				pct7 := int(math.Round(usage.SevenDay.Utilization))
 				usage7d = bar(pct7, quotaColor)
