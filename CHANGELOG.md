@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/fredrikaverpil/claudeline/compare/v0.10.0...v0.11.0) (2026-03-19)
+
+
+### Features
+
+* add service status indicator from status.claude.com ([#54](https://github.com/fredrikaverpil/claudeline/issues/54)) ([4cae18d](https://github.com/fredrikaverpil/claudeline/commit/4cae18daa6fdb3e1a2ded9a35ff1414456cb36e7))
+
 ## [0.10.0](https://github.com/fredrikaverpil/claudeline/compare/v0.9.0...v0.10.0) (2026-03-17)
 
 
