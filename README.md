@@ -1,16 +1,12 @@
 # claudeline
 
-A minimalistic and opinionated Claude Code status line. 
-
+A minimalistic and opinionated Claude Code status line.
 
 <img width="930" height="112" alt="claudeline_pro" src="https://github.com/user-attachments/assets/1c28cf80-c562-47fa-8ae4-2dda6bccd336" />
 
- 
 <img width="930" height="112" alt="claudeline" src="https://github.com/user-attachments/assets/51ab601c-760a-41da-8dca-d682bf7ad138" />
 
-
 <img width="930" height="112" alt="image" src="https://github.com/user-attachments/assets/8728028b-8cbb-4113-af88-3bbf4e6ab23b" />
-
 
 It displays the current Anthropic model, subscription plan, context window
 usage, and 5-hour/7-day quota usage as ANSI-colored progress bars. Written in Go
@@ -19,9 +15,9 @@ with no external dependencies (stdlib only).
 > [!NOTE]
 >
 > The 5-hour and 7-day quota bars require a Claude Code subscription (Pro, Max,
-> or Team). They are not available for free tier, Enterprise or API key users. The bars may
-> also disappear silently if the usage API is temporarily unavailable or rate
-> limited — use `-debug` to diagnose.
+> or Team). They are not available for free tier, Enterprise or API key users.
+> The bars may also disappear silently if the usage API is temporarily
+> unavailable or rate limited — use `-debug` to diagnose.
 
 ## Installation
 
@@ -34,7 +30,8 @@ with no external dependencies (stdlib only).
 /plugin install claudeline@claudeline
 ```
 
-2. Run `/claudeline:setup` inside Claude Code
+2. Run `/claudeline:setup` inside Claude Code — this downloads the Go binary and
+   configures your statusline
 3. Restart Claude Code
 
 ### Manual
@@ -44,27 +41,31 @@ with no external dependencies (stdlib only).
    use `go install github.com/fredrikaverpil/claudeline@latest`.
 2. Add the statusline to `~/.claude/settings.json`:
 
-```json
+```jsonc
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.local/bin/claudeline"
-  }
+    "command": "/path/to/claudeline",
+  },
 }
 ```
+
+> [!TIP]
+>
+> If installing via `go install`, set the command to `~/go/bin/claudeline`
 
 3. Restart Claude Code
 
 ## Flags
 
-| Flag                   | Default | Description                                          |
-| ---------------------- | ------- | ---------------------------------------------------- |
-| `-debug`               | `false` | Write warnings/errors to `/tmp/claudeline-debug.log` |
-| `-cwd`                 | `false` | Show working directory name in the status line       |
-| `-cwd-max-len`         | `30`    | Max display length for working directory name        |
-| `-git-branch`          | `false` | Show git branch in the status line                   |
-| `-git-branch-max-len`  | `30`    | Max display length for git branch                    |
-| `-version`             | `false` | Print version and exit                               |
+| Flag                  | Default | Description                                          |
+| --------------------- | ------- | ---------------------------------------------------- |
+| `-debug`              | `false` | Write warnings/errors to `/tmp/claudeline-debug.log` |
+| `-cwd`                | `false` | Show working directory name in the status line       |
+| `-cwd-max-len`        | `30`    | Max display length for working directory name        |
+| `-git-branch`         | `false` | Show git branch in the status line                   |
+| `-git-branch-max-len` | `30`    | Max display length for git branch                    |
+| `-version`            | `false` | Print version and exit                               |
 
 Example with working directory and git branch enabled:
 
@@ -112,12 +113,12 @@ Key components:
 - **Service status:** Fetches `https://status.claude.com/api/v2/status.json`
   (Atlassian Statuspage API, no auth required). Cached in
   `/tmp/claudeline-status.json` with 2min OK TTL, 30s fail TTL. Shows an orange
-  fire icon with severity bars when there is a disruption: `🔥▂` (minor),
-  `🔥▄▂` (major), `🔥▆▄▂` (critical). Hidden when all systems are operational.
-- **Working directory:** Last path segment from `cwd` in stdin JSON, opt-in
-  with `-cwd`.
-- **Git info:** Branch name read from `.git/HEAD` (no subprocess), opt-in
-  with `-git-branch`.
+  fire icon with severity bars when there is a disruption: `🔥▂` (minor), `🔥▄▂`
+  (major), `🔥▆▄▂` (critical). Hidden when all systems are operational.
+- **Working directory:** Last path segment from `cwd` in stdin JSON, opt-in with
+  `-cwd`.
+- **Git info:** Branch name read from `.git/HEAD` (no subprocess), opt-in with
+  `-git-branch`.
 - **Custom .claude folder**: Support `CLAUDE_CONFIG_DIR`.
 - **Debug mode:** Pass `-debug` to write warnings and errors to
   `/tmp/claudeline-debug.log`. Set the statusline command to

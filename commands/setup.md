@@ -6,7 +6,22 @@ Re-running this command will update claudeline to the latest version.
 
 ## Steps
 
-1. **Download the latest pre-built binary from GitHub releases.**
+1. **Check if claudeline is already installed.**
+
+Check if a `claudeline` binary already exists on the system:
+
+```bash
+which claudeline
+```
+
+If found, note the path — the update should replace the binary at that location.
+
+If not found, check these paths:
+
+- `~/.local/bin/claudeline`
+- `~/go/bin/claudeline`
+
+2. **Download the latest pre-built binary from GitHub releases.**
 
 Detect OS and architecture:
 
@@ -19,12 +34,12 @@ case "$ARCH" in
 esac
 ```
 
-Download and install:
+Download and install to the target directory (the directory from step 1):
 
 ```bash
-mkdir -p ~/.local/bin
-curl -fsSL "https://github.com/fredrikaverpil/claudeline/releases/latest/download/claudeline_${OS}_${ARCH}.tar.gz" | tar -xz -C ~/.local/bin claudeline
-chmod +x ~/.local/bin/claudeline
+mkdir -p <target_directory>
+curl -fsSL "https://github.com/fredrikaverpil/claudeline/releases/latest/download/claudeline_${OS}_${ARCH}.tar.gz" | tar -xz -C <target_directory> claudeline
+chmod +x <target_directory>/claudeline
 ```
 
 If the download fails (e.g. `curl` is not available, no internet, or the
@@ -36,20 +51,23 @@ go install github.com/fredrikaverpil/claudeline@latest
 
 This requires Go to be installed with `$GOPATH/bin` in `$PATH`.
 
-2. **Verify the binary is available.**
-
-Check if the binary works by running it directly:
+3. **Verify the binary is available.**
 
 ```bash
-~/.local/bin/claudeline -version
+<target_directory>/claudeline -version
 ```
 
-If the binary was installed via `go install`, check with `which claudeline`
-instead.
+4. **Configure `settings.json` if not already set.**
 
-3. **Update `~/.claude/settings.json`** — set the `statusLine` field.
+Determine the settings file path: use `$CLAUDE_CONFIG_DIR/settings.json` if the
+`CLAUDE_CONFIG_DIR` environment variable is set, otherwise
+`~/.claude/settings.json`.
 
-If `~/.local/bin` is in the user's `$PATH`, use:
+Read the settings file. If `statusLine` is already configured and its `command`
+contains `claudeline`, **skip this step** — the existing configuration is valid.
+
+Otherwise, set the `statusLine` field. If the target directory is in the user's
+`$PATH`, use just the binary name:
 
 ```json
 {
@@ -66,12 +84,12 @@ Otherwise, use the full path:
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.local/bin/claudeline"
+    "command": "<target_directory>/claudeline"
   }
 }
 ```
 
 Preserve all other fields in the file.
 
-4. **Confirm** the change was made and tell the user to restart their Claude
+5. **Confirm** the change was made and tell the user to restart their Claude
    Code session for the statusline to take effect.
