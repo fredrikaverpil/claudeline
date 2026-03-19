@@ -48,15 +48,19 @@ const (
 	cacheTTLRateLimitDefault    = 5 * time.Minute
 	cacheTTLRateLimitMaxBackoff = 30 * time.Minute
 	usageURL                    = "https://api.anthropic.com/api/oauth/usage"
+	statusURL                   = "https://status.claude.com/api/v2/status.json"
+	statusCacheTTLOK            = 2 * time.Minute
+	statusCacheTTLFail          = 30 * time.Second
 	ioTimeout                   = 5 * time.Second
 	barWidth                    = 5
 )
 
 var (
-	debugLogFile         = debugLogFilePath()
-	errRateLimited       = errors.New("rate limited")
-	errCachedRateLimited = errors.New("cached rate limit")
-	errCachedFailure     = errors.New("cached failure")
+	debugLogFile           = debugLogFilePath()
+	errRateLimited         = errors.New("rate limited")
+	errCachedRateLimited   = errors.New("cached rate limit")
+	errCachedFailure       = errors.New("cached failure")
+	errStatusCachedFailure = errors.New("cached status failure")
 )
 
 // stdinData is the JSON structure received from Claude Code via stdin.
@@ -109,6 +113,21 @@ type cacheEntry struct {
 	OK          bool            `json:"ok"`
 	RateLimited bool            `json:"rate_limited,omitempty"`
 	RetryAfter  int64           `json:"retry_after,omitempty"` // Unix timestamp; retry allowed after this time.
+}
+
+// statusResponse is the API response from the Atlassian Statuspage API.
+type statusResponse struct {
+	Status struct {
+		Indicator   string `json:"indicator"`
+		Description string `json:"description"`
+	} `json:"status"`
+}
+
+// statusCacheEntry is the file-based cache structure for status data.
+type statusCacheEntry struct {
+	Data      json.RawMessage `json:"data"`
+	Timestamp int64           `json:"timestamp"`
+	OK        bool            `json:"ok"`
 }
 
 func main() {
@@ -232,7 +251,10 @@ func run(cfg config) error {
 	if token == "" {
 		log.Printf("usage: no access token found")
 	} else if plan == "" {
-		log.Printf("usage: unknown subscription type %q, expected pro/max/team/enterprise", creds.ClaudeAiOauth.SubscriptionType)
+		log.Printf(
+			"usage: unknown subscription type %q, expected pro/max/team/enterprise",
+			creds.ClaudeAiOauth.SubscriptionType,
+		)
 	}
 	if token != "" && plan != "" {
 		usage, fetchErr := fetchUsage(ctx, token)
@@ -278,6 +300,9 @@ func run(cfg config) error {
 		}
 	}
 
+	// Service status.
+	statusStr := formatStatusIndicator(fetchStatus(ctx))
+
 	// Render output.
 	var cwdStr, branchStr string
 	if cfg.showCwd {
@@ -300,7 +325,7 @@ func run(cfg config) error {
 		identityFull += sep + branchStr
 	}
 
-	output := renderOutput(identityFull, contextBar, usage5h, usage7d, usageExtra)
+	output := renderOutput(identityFull, contextBar, usage5h, usage7d, usageExtra, statusStr)
 
 	// Leading reset clears stale ANSI state from previous renders.
 	// Non-breaking spaces prevent the terminal from collapsing whitespace.
@@ -310,7 +335,7 @@ func run(cfg config) error {
 }
 
 // renderOutput assembles all segments into a single-line status output.
-func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string) string {
+func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra, statusIndicator string) string {
 	sep := dim + " │ " + ansiReset
 
 	out := identity + sep + contextBar
@@ -322,6 +347,9 @@ func renderOutput(identity, contextBar, usage5h, usage7d, usageExtra string) str
 	}
 	if usageExtra != "" {
 		out += sep + usageExtra
+	}
+	if statusIndicator != "" {
+		out += sep + statusIndicator
 	}
 	return out
 }
@@ -496,6 +524,141 @@ func cacheFilePath() string {
 	}
 	h := sha256.Sum256([]byte(configDir))
 	return fmt.Sprintf("%s-%x.json", base, h[:4])
+}
+
+// statusCacheFilePath returns the file path for the status cache.
+func statusCacheFilePath() string {
+	base := filepath.Join(tempDir(), "claudeline-status")
+	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if configDir == "" {
+		return base + ".json"
+	}
+	h := sha256.Sum256([]byte(configDir))
+	return fmt.Sprintf("%s-%x.json", base, h[:4])
+}
+
+// fetchStatus fetches the service status from the Atlassian Statuspage API with caching.
+// Returns nil when the service is operational or the status cannot be determined.
+func fetchStatus(ctx context.Context) *statusResponse {
+	cached, err := readStatusCache()
+	if err == nil {
+		if cached.Status.Indicator == "none" {
+			return nil
+		}
+		return cached
+	}
+	if errors.Is(err, errStatusCachedFailure) {
+		return nil
+	}
+
+	status, fetchErr := fetchStatusAPI(ctx)
+	if fetchErr != nil {
+		log.Printf("status: %v", fetchErr)
+		writeStatusCache(nil, false)
+		return nil
+	}
+
+	writeStatusCache(status, true)
+	if status.Status.Indicator == "none" {
+		return nil
+	}
+	return status
+}
+
+// readStatusCache reads and validates the cached status data.
+func readStatusCache() (*statusResponse, error) {
+	data, err := os.ReadFile(statusCacheFilePath())
+	if err != nil {
+		return nil, err
+	}
+
+	var entry statusCacheEntry
+	if err := json.Unmarshal(data, &entry); err != nil {
+		return nil, err
+	}
+
+	age := time.Since(time.Unix(entry.Timestamp, 0))
+	if entry.OK && age < statusCacheTTLOK {
+		var status statusResponse
+		if err := json.Unmarshal(entry.Data, &status); err != nil {
+			return nil, err
+		}
+		return &status, nil
+	}
+	if !entry.OK && age < statusCacheTTLFail {
+		return nil, errStatusCachedFailure
+	}
+	return nil, errors.New("cache expired")
+}
+
+// writeStatusCache writes status data to the cache file.
+func writeStatusCache(status *statusResponse, ok bool) {
+	entry := statusCacheEntry{
+		Timestamp: time.Now().Unix(),
+		OK:        ok,
+	}
+	if status != nil {
+		data, err := json.Marshal(status)
+		if err != nil {
+			return
+		}
+		entry.Data = data
+	}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(statusCacheFilePath(), data, 0o600)
+}
+
+// fetchStatusAPI makes the HTTP request to the Atlassian Statuspage API.
+func fetchStatusAPI(ctx context.Context) (*statusResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, ioTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("execute request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+	log.Printf("status response: %s", body)
+
+	var status statusResponse
+	if err := json.Unmarshal(body, &status); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &status, nil
+}
+
+// formatStatusIndicator returns a colored fire icon with severity bars for service disruptions.
+// Returns "" when the service is operational (indicator is "none" or nil).
+func formatStatusIndicator(status *statusResponse) string {
+	if status == nil {
+		return ""
+	}
+	switch status.Status.Indicator {
+	case "minor":
+		return orange + "🔥▂" + ansiReset
+	case "major":
+		return orange + "🔥▄▂" + ansiReset
+	case "critical":
+		return orange + "🔥▆▄▂" + ansiReset
+	default:
+		return ""
+	}
 }
 
 // readCredentials reads OAuth credentials from keychain or file.

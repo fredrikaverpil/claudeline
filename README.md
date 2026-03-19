@@ -84,7 +84,7 @@ Example with working directory and git branch enabled:
 Single-file (`main.go`), single-package (`main`) design.
 
 **Data flow:** stdin JSON → parse input + read credentials → fetch usage
-(cached) → render ANSI output → stdout
+(cached) + fetch status (cached) → render ANSI output → stdout
 
 Key components:
 
@@ -109,6 +109,11 @@ Key components:
 - **Compaction warning:** A yellow `⚠` appears on the context bar when usage is
   within 5% of the auto-compaction threshold (85% by default, configurable via
   `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`).
+- **Service status:** Fetches `https://status.claude.com/api/v2/status.json`
+  (Atlassian Statuspage API, no auth required). Cached in
+  `/tmp/claudeline-status.json` with 2min OK TTL, 30s fail TTL. Shows an orange
+  fire icon with severity bars when there is a disruption: `🔥▂` (minor),
+  `🔥▄▂` (major), `🔥▆▄▂` (critical). Hidden when all systems are operational.
 - **Working directory:** Last path segment from `cwd` in stdin JSON, opt-in
   with `-cwd`.
 - **Git info:** Branch name read from `.git/HEAD` (no subprocess), opt-in

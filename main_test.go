@@ -675,13 +675,14 @@ func TestRenderOutput(t *testing.T) {
 	identCwdBranch := ident + sep + yellow + "myproject" + ansiReset + sep + magenta + "feat/foo" + ansiReset
 
 	tests := []struct {
-		name       string
-		identity   string
-		contextBar string
-		usage5h    string
-		usage7d    string
-		usageExtra string
-		want       string
+		name            string
+		identity        string
+		contextBar      string
+		usage5h         string
+		usage7d         string
+		usageExtra      string
+		statusIndicator string
+		want            string
 	}{
 		// Minimal: identity + context only.
 		{
@@ -768,11 +769,29 @@ func TestRenderOutput(t *testing.T) {
 			want: identCwdBranch + sep + "██░░░ 42%" + sep + "███░░ 62% (15:00)" + sep +
 				"█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)" + sep + "$12/$50",
 		},
+		// Status indicator variants.
+		{
+			name:            "with status indicator",
+			identity:        ident,
+			contextBar:      "█░░░░ 23%",
+			statusIndicator: orange + "🔥▂" + ansiReset,
+			want:            ident + sep + "█░░░░ 23%" + sep + orange + "🔥▂" + ansiReset,
+		},
+		{
+			name:            "all segments with status indicator",
+			identity:        ident,
+			contextBar:      "█░░░░ 23%",
+			usage5h:         "░░░░░ 9% (13:00)",
+			usage7d:         "█░░░░ 31% (Sun 09:00)",
+			statusIndicator: orange + "🔥▆▄▂" + ansiReset,
+			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
+				"█░░░░ 31% (Sun 09:00)" + sep + orange + "🔥▆▄▂" + ansiReset,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := renderOutput(tt.identity, tt.contextBar, tt.usage5h, tt.usage7d, tt.usageExtra)
+			got := renderOutput(tt.identity, tt.contextBar, tt.usage5h, tt.usage7d, tt.usageExtra, tt.statusIndicator)
 			if got != tt.want {
 				t.Errorf("renderOutput() =\n  %q\nwant\n  %q", got, tt.want)
 			}
@@ -808,6 +827,180 @@ func TestFormatResetTime(t *testing.T) {
 	if emptyResult != "" {
 		t.Errorf("formatResetTime('') = %q, want empty", emptyResult)
 	}
+}
+
+func TestStatusCacheFilePath(t *testing.T) {
+	tests := []struct {
+		name            string
+		claudeConfigDir string
+		want            string
+	}{
+		{
+			name:            "no CLAUDE_CONFIG_DIR set",
+			claudeConfigDir: "",
+			want:            filepath.Join(tempDir(), "claudeline-status.json"),
+		},
+		{
+			name:            "custom config dir claude-personal",
+			claudeConfigDir: "/Users/oa/.claude-personal",
+			want:            filepath.Join(tempDir(), "claudeline-status-81c94270.json"),
+		},
+		{
+			name:            "custom config dir claude-work",
+			claudeConfigDir: "/Users/oa/.claude-work",
+			want:            filepath.Join(tempDir(), "claudeline-status-1ef5702c.json"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("CLAUDE_CONFIG_DIR", tt.claudeConfigDir)
+			got := statusCacheFilePath()
+			if got != tt.want {
+				t.Errorf("statusCacheFilePath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatStatusIndicator(t *testing.T) {
+	tests := []struct {
+		name   string
+		status *statusResponse
+		want   string
+	}{
+		{
+			name:   "nil status",
+			status: nil,
+			want:   "",
+		},
+		{
+			name: "operational",
+			status: func() *statusResponse {
+				s := &statusResponse{}
+				s.Status.Indicator = "none"
+				s.Status.Description = "All Systems Operational"
+				return s
+			}(),
+			want: "",
+		},
+		{
+			name: "minor disruption",
+			status: func() *statusResponse {
+				s := &statusResponse{}
+				s.Status.Indicator = "minor"
+				s.Status.Description = "Partially Degraded Service"
+				return s
+			}(),
+			want: orange + "🔥▂" + ansiReset,
+		},
+		{
+			name: "major disruption",
+			status: func() *statusResponse {
+				s := &statusResponse{}
+				s.Status.Indicator = "major"
+				s.Status.Description = "Major System Outage"
+				return s
+			}(),
+			want: orange + "🔥▄▂" + ansiReset,
+		},
+		{
+			name: "critical disruption",
+			status: func() *statusResponse {
+				s := &statusResponse{}
+				s.Status.Indicator = "critical"
+				s.Status.Description = "Critical System Outage"
+				return s
+			}(),
+			want: orange + "🔥▆▄▂" + ansiReset,
+		},
+		{
+			name: "unknown indicator",
+			status: func() *statusResponse {
+				s := &statusResponse{}
+				s.Status.Indicator = "maintenance"
+				s.Status.Description = "Scheduled Maintenance"
+				return s
+			}(),
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatStatusIndicator(tt.status)
+			if got != tt.want {
+				t.Errorf("formatStatusIndicator() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReadStatusCache(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+	cachePath := statusCacheFilePath()
+	t.Cleanup(func() { os.Remove(cachePath) })
+
+	t.Run("valid cache returns status", func(t *testing.T) {
+		status := statusResponse{}
+		status.Status.Indicator = "minor"
+		status.Status.Description = "Partially Degraded Service"
+		statusData, _ := json.Marshal(status)
+		entry := statusCacheEntry{
+			Data:      statusData,
+			Timestamp: time.Now().Unix(),
+			OK:        true,
+		}
+		data, _ := json.Marshal(entry)
+		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := readStatusCache()
+		if err != nil {
+			t.Fatalf("readStatusCache() error = %v", err)
+		}
+		if got.Status.Indicator != "minor" {
+			t.Errorf("readStatusCache().Status.Indicator = %q, want %q", got.Status.Indicator, "minor")
+		}
+	})
+
+	t.Run("expired cache returns error", func(t *testing.T) {
+		status := statusResponse{}
+		status.Status.Indicator = "minor"
+		statusData, _ := json.Marshal(status)
+		entry := statusCacheEntry{
+			Data:      statusData,
+			Timestamp: time.Now().Add(-statusCacheTTLOK - time.Second).Unix(),
+			OK:        true,
+		}
+		data, _ := json.Marshal(entry)
+		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := readStatusCache()
+		if err == nil {
+			t.Error("readStatusCache() error = nil, want error (expired)")
+		}
+	})
+
+	t.Run("failed cache within TTL returns cached failure error", func(t *testing.T) {
+		entry := statusCacheEntry{
+			Timestamp: time.Now().Unix(),
+			OK:        false,
+		}
+		data, _ := json.Marshal(entry)
+		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := readStatusCache()
+		if !errors.Is(err, errStatusCachedFailure) {
+			t.Errorf("readStatusCache() error = %v, want %v", err, errStatusCachedFailure)
+		}
+	})
 }
 
 func TestGetBranch(t *testing.T) {
