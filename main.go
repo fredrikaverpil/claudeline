@@ -485,13 +485,7 @@ func formatResetTime(iso string, now time.Time) string {
 // keychainServiceName returns the macOS Keychain service name used by Claude Code.
 // When CLAUDE_CONFIG_DIR is set, Claude Code appends a hash suffix to the service name.
 func keychainServiceName() string {
-	const base = "Claude Code-credentials"
-	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
-	if configDir == "" {
-		return base
-	}
-	h := sha256.Sum256([]byte(configDir))
-	return fmt.Sprintf("%s-%x", base, h[:4])
+	return "Claude Code-credentials" + configDirSuffix()
 }
 
 // tempDir returns /tmp on Unix systems and the OS temp directory on Windows.
@@ -502,39 +496,32 @@ func tempDir() string {
 	return "/tmp"
 }
 
+// configDirSuffix returns a hash-based suffix when CLAUDE_CONFIG_DIR is set,
+// or an empty string when it is unset. This avoids collisions between profiles.
+func configDirSuffix() string {
+	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
+	if configDir == "" {
+		return ""
+	}
+	h := sha256.Sum256([]byte(configDir))
+	return fmt.Sprintf("-%x", h[:4])
+}
+
 // debugLogFilePath returns the file path for the debug log.
 // When CLAUDE_CONFIG_DIR is set, a hash suffix is appended to avoid collisions between profiles.
 func debugLogFilePath() string {
-	base := filepath.Join(tempDir(), "claudeline-debug")
-	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
-	if configDir == "" {
-		return base + ".log"
-	}
-	h := sha256.Sum256([]byte(configDir))
-	return fmt.Sprintf("%s-%x.log", base, h[:4])
+	return filepath.Join(tempDir(), "claudeline-debug"+configDirSuffix()+".log")
 }
 
 // cacheFilePath returns the file path for the usage cache.
 // When CLAUDE_CONFIG_DIR is set, a hash suffix is appended to avoid collisions between profiles.
 func cacheFilePath() string {
-	base := filepath.Join(tempDir(), "claudeline-usage")
-	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
-	if configDir == "" {
-		return base + ".json"
-	}
-	h := sha256.Sum256([]byte(configDir))
-	return fmt.Sprintf("%s-%x.json", base, h[:4])
+	return filepath.Join(tempDir(), "claudeline-usage"+configDirSuffix()+".json")
 }
 
 // statusCacheFilePath returns the file path for the status cache.
 func statusCacheFilePath() string {
-	base := filepath.Join(tempDir(), "claudeline-status")
-	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
-	if configDir == "" {
-		return base + ".json"
-	}
-	h := sha256.Sum256([]byte(configDir))
-	return fmt.Sprintf("%s-%x.json", base, h[:4])
+	return filepath.Join(tempDir(), "claudeline-status"+configDirSuffix()+".json")
 }
 
 // fetchStatus fetches the service status from the Atlassian Statuspage API with caching.
