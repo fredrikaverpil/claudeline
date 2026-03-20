@@ -111,14 +111,17 @@ func TestStdinPayloadDiff(t *testing.T) {
 		values := make([]string, len(payloads))
 		for i, p := range payloads {
 			v, ok := p.fields[key]
-			if !ok {
+			switch {
+			case !ok:
 				values[i] = "<missing>"
-			} else if v == nil {
+			case v == nil:
 				values[i] = "<null>"
-			} else {
-				b, _ := json.Marshal(v)
+			default:
+				b, err := json.Marshal(v)
+				if err != nil {
+					t.Fatalf("marshal %s: %v", key, err)
+				}
 				s := string(b)
-				// Truncate long values.
 				if len(s) > 60 {
 					s = s[:57] + "..."
 				}
