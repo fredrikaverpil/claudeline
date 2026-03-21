@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/fredrikaverpil/claudeline/compare/v0.11.0...v0.12.0) (2026-03-21)
+
+
+### Features
+
+* move logs to /tmp/claudeline and cap debug log at 1MB ([#62](https://github.com/fredrikaverpil/claudeline/issues/62)) ([56d0440](https://github.com/fredrikaverpil/claudeline/commit/56d0440cd0b3334edfa54537155f72b229aaded0))
+
 ## [0.11.0](https://github.com/fredrikaverpil/claudeline/compare/v0.10.0...v0.11.0) (2026-03-19)
 
 
