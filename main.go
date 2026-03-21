@@ -182,8 +182,8 @@ func runMain() int {
 	log.SetFlags(log.Ldate | log.Ltime)
 	_ = os.MkdirAll(cacheDir(), 0o700)
 	if *debug {
-		// Truncate if over 256KB to prevent unbounded growth.
-		if info, err := os.Stat(debugLogFile); err == nil && info.Size() > 256*1024 {
+		// Truncate if over 1MB to prevent unbounded growth.
+		if info, err := os.Stat(debugLogFile); err == nil && info.Size() > 1024*1024 {
 			_ = os.Truncate(debugLogFile, 0)
 		}
 		f, err := os.OpenFile(debugLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
