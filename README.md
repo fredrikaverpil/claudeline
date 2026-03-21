@@ -110,6 +110,9 @@ Key components:
 - **Compaction warning:** A yellow `⚠` appears on the context bar when usage is
   within 5% of the auto-compaction threshold (85% by default, configurable via
   `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`).
+- **Extended context indicator:** A `🧠` appears on the context bar when
+  `exceeds_200k_tokens` is true, signaling the session has entered extended
+  context territory where model quality may degrade.
 - **Service status:** Fetches `https://status.claude.com/api/v2/status.json`
   (Atlassian Statuspage API, no auth required). Cached in
   `/tmp/claudeline/status.json` with 2min OK TTL, 30s fail TTL. Shows an orange

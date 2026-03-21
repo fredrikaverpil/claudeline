@@ -73,6 +73,7 @@ type stdinData struct {
 	ContextWindow struct {
 		UsedPercentage *float64 `json:"used_percentage"`
 	} `json:"context_window"`
+	Exceeds200kTokens bool `json:"exceeds_200k_tokens"`
 }
 
 // credentials is the OAuth credentials structure.
@@ -251,6 +252,9 @@ func run(cfg config) error {
 	contextBar := bar(contextPct, contextColorFunc(warnPct))
 	if contextPct >= warnPct {
 		contextBar += " " + yellow + "⚠" + ansiReset
+	}
+	if data.Exceeds200kTokens {
+		contextBar += " 🧠"
 	}
 
 	// Usage bars.
