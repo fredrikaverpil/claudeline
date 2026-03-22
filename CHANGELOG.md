@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/fredrikaverpil/claudeline/compare/v0.12.0...v0.13.0) (2026-03-22)
+
+
+### Features
+
+* split main.go into internal packages ([#66](https://github.com/fredrikaverpil/claudeline/issues/66)) ([5077a3e](https://github.com/fredrikaverpil/claudeline/commit/5077a3e878e8878a5746f21e15f7f2e32d9d10ab))
+
 ## [0.12.0](https://github.com/fredrikaverpil/claudeline/compare/v0.11.0...v0.12.0) (2026-03-21)
 
 
