@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fredrikaverpil/claudeline/internal/stdin"
 )
 
 // version and commit are set via ldflags by goreleaser.
@@ -62,18 +64,6 @@ var (
 	errCachedFailure       = errors.New("cached failure")
 	errStatusCachedFailure = errors.New("cached status failure")
 )
-
-// stdinData is the JSON structure received from Claude Code via stdin.
-// See stdinPayload in main_test.go for the full schema.
-type stdinData struct {
-	Cwd   string `json:"cwd"`
-	Model struct {
-		DisplayName string `json:"display_name"`
-	} `json:"model"`
-	ContextWindow struct {
-		UsedPercentage *float64 `json:"used_percentage"`
-	} `json:"context_window"`
-}
 
 // credentials is the OAuth credentials structure.
 type credentials struct {
@@ -212,16 +202,9 @@ func run(cfg config) error {
 	ctx := context.Background()
 
 	// Read stdin JSON.
-	input, err := io.ReadAll(os.Stdin)
+	data, err := stdin.Parse(os.Stdin)
 	if err != nil {
-		return fmt.Errorf("read stdin: %w", err)
-	}
-
-	log.Printf("raw stdin: %s", input)
-
-	var data stdinData
-	if err := json.Unmarshal(input, &data); err != nil {
-		return fmt.Errorf("parse stdin JSON: %w", err)
+		return fmt.Errorf("parse stdin: %w", err)
 	}
 
 	// Read credentials.
