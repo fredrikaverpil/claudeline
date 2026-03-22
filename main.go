@@ -59,13 +59,15 @@ func buildVersion() string {
 
 // config holds CLI configuration.
 type config struct {
-	debug           bool
 	showGitBranch   bool
 	gitBranchMaxLen int
 	showCwd         bool
 	cwdMaxLen       int
-	usageFile       string
-	statusFile      string
+
+	// debug options
+	debug      bool
+	usageFile  string
+	statusFile string
 }
 
 func runMain() int {
