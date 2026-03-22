@@ -1,0 +1,28 @@
+{
+  "claudeAiOauth": {
+    "accessToken": "sanitized",
+    "expiresAt": 0,
+    "rateLimitTier": "default_claude_ai",
+    "refreshToken": "sanitized",
+    "scopes": [
+      "user:file_upload",
+      "user:inference",
+      "user:mcp_servers",
+      "user:profile",
+      "user:sessions:claude_code"
+    ],
+    "subscriptionType": "pro"
+  },
+  "mcpOAuth": {
+    "server|sanitized_0": {
+      "accessToken": "sanitized",
+      "discoveryState": {
+        "authorizationServerUrl": "https://sanitized.example.com/oauth",
+        "resourceMetadataUrl": "https://sanitized.example.com/.well-known"
+      },
+      "expiresAt": 0,
+      "serverName": "sanitized",
+      "serverUrl": "https://sanitized.example.com"
+    }
+  }
+}

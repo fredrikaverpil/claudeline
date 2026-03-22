@@ -1,3 +1,6 @@
 # Pocket managed directories
 bin/
 tools/
+
+# Build artifact
+pocket

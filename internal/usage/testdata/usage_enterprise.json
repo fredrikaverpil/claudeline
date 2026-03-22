@@ -1,0 +1,15 @@
+{
+  "extra_usage": {
+    "is_enabled": true,
+    "monthly_limit": 50000,
+    "used_credits": 12992,
+    "utilization": 25.984
+  },
+  "five_hour": null,
+  "iguana_necktie": null,
+  "seven_day": null,
+  "seven_day_cowork": null,
+  "seven_day_oauth_apps": null,
+  "seven_day_opus": null,
+  "seven_day_sonnet": null
+}

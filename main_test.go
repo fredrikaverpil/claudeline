@@ -1,211 +1,12 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
-
-// stdinRateLimit is a single rate limit entry from Claude Code's stdin JSON.
-// ResetsAt is any because Claude Code sends it as a Unix timestamp (number).
-type stdinRateLimit struct {
-	UsedPercentage *float64 `json:"used_percentage"`
-	ResetsAt       any      `json:"resets_at"`
-}
-
-// stdinPayload is the complete JSON schema received from Claude Code via stdin.
-// This struct documents every known field and is used in tests with
-// DisallowUnknownFields to detect when Claude Code adds new fields.
-// Update this struct and testdata/*.json when the payload changes.
-type stdinPayload struct {
-	SessionID      string `json:"session_id"`
-	TranscriptPath string `json:"transcript_path"`
-	Cwd            string `json:"cwd"`
-	Model          struct {
-		ID          string `json:"id"`
-		DisplayName string `json:"display_name"`
-	} `json:"model"`
-	Workspace struct {
-		CurrentDir string   `json:"current_dir"`
-		ProjectDir string   `json:"project_dir"`
-		AddedDirs  []string `json:"added_dirs"`
-	} `json:"workspace"`
-	Version     string `json:"version"`
-	OutputStyle struct {
-		Name string `json:"name"`
-	} `json:"output_style"`
-	Cost struct {
-		TotalCostUSD       float64 `json:"total_cost_usd"`
-		TotalDurationMs    int64   `json:"total_duration_ms"`
-		TotalAPIDurationMs int64   `json:"total_api_duration_ms"`
-		TotalLinesAdded    int     `json:"total_lines_added"`
-		TotalLinesRemoved  int     `json:"total_lines_removed"`
-	} `json:"cost"`
-	ContextWindow struct {
-		TotalInputTokens  int `json:"total_input_tokens"`
-		TotalOutputTokens int `json:"total_output_tokens"`
-		ContextWindowSize int `json:"context_window_size"`
-		CurrentUsage      *struct {
-			InputTokens              int `json:"input_tokens"`
-			OutputTokens             int `json:"output_tokens"`
-			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-		} `json:"current_usage"`
-		UsedPercentage      *float64 `json:"used_percentage"`
-		RemainingPercentage *float64 `json:"remaining_percentage"`
-	} `json:"context_window"`
-	Exceeds200kTokens bool `json:"exceeds_200k_tokens"`
-	RateLimits        *struct {
-		FiveHour *stdinRateLimit `json:"five_hour"`
-		SevenDay *stdinRateLimit `json:"seven_day"`
-	} `json:"rate_limits"`
-}
-
-// TestStdinPayloadDiff compares all testdata files and reports which fields
-// differ across them. Run with -v to see the full diff table.
-func TestStdinPayloadDiff(t *testing.T) {
-	files, err := filepath.Glob("testdata/stdin_*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(files) < 2 {
-		t.Skip("need at least two testdata files to compare")
-	}
-
-	// Load all files into flat key→value maps.
-	type fileData struct {
-		name   string
-		fields map[string]any
-	}
-	payloads := make([]fileData, 0, len(files))
-	for _, f := range files {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var m map[string]any
-		if err := json.Unmarshal(data, &m); err != nil {
-			t.Fatal(err)
-		}
-		payloads = append(payloads, fileData{
-			name:   filepath.Base(f),
-			fields: flattenJSON("", m),
-		})
-	}
-
-	// Collect all unique field paths.
-	allKeys := map[string]struct{}{}
-	for _, p := range payloads {
-		for k := range p.fields {
-			allKeys[k] = struct{}{}
-		}
-	}
-
-	// For each field, check if the value differs across any files.
-	for key := range allKeys {
-		values := make([]string, len(payloads))
-		for i, p := range payloads {
-			v, ok := p.fields[key]
-			switch {
-			case !ok:
-				values[i] = "<missing>"
-			case v == nil:
-				values[i] = "<null>"
-			default:
-				b, err := json.Marshal(v)
-				if err != nil {
-					t.Fatalf("marshal %s: %v", key, err)
-				}
-				s := string(b)
-				if len(s) > 60 {
-					s = s[:57] + "..."
-				}
-				values[i] = s
-			}
-		}
-		// Check if all values are the same.
-		allSame := true
-		for _, v := range values[1:] {
-			if v != values[0] {
-				allSame = false
-				break
-			}
-		}
-		if !allSame {
-			t.Logf("DIFF %s:", key)
-			for i, p := range payloads {
-				t.Logf("  %-50s %s", p.name, values[i])
-			}
-		}
-	}
-}
-
-// flattenJSON recursively flattens a nested map into dot-separated key paths.
-func flattenJSON(prefix string, m map[string]any) map[string]any {
-	result := map[string]any{}
-	for k, v := range m {
-		key := k
-		if prefix != "" {
-			key = prefix + "." + k
-		}
-		if nested, ok := v.(map[string]any); ok {
-			maps.Copy(result, flattenJSON(key, nested))
-		} else {
-			result[key] = v
-		}
-	}
-	return result
-}
-
-func TestStdinPayloadSchema(t *testing.T) {
-	files, err := filepath.Glob("testdata/stdin_*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(files) == 0 {
-		t.Fatal("no testdata/stdin_*.json files found")
-	}
-
-	for _, file := range files {
-		t.Run(filepath.Base(file), func(t *testing.T) {
-			data, err := os.ReadFile(file)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// Strict unmarshal: fails if Claude Code added fields we haven't mapped.
-			var payload stdinPayload
-			dec := json.NewDecoder(strings.NewReader(string(data)))
-			dec.DisallowUnknownFields()
-			if err := dec.Decode(&payload); err != nil {
-				t.Fatalf(
-					"unknown or changed fields in stdin payload: %v\nUpdate stdinPayload struct and testdata to match the new schema.",
-					err,
-				)
-			}
-
-			// Sanity checks on required fields.
-			if payload.Cwd == "" {
-				t.Error("cwd is empty")
-			}
-			if payload.Model.DisplayName == "" {
-				t.Error("model.display_name is empty")
-			}
-			if payload.Version == "" {
-				t.Error("version is empty")
-			}
-			if payload.ContextWindow.ContextWindowSize == 0 {
-				t.Error("context_window.context_window_size is 0")
-			}
-		})
-	}
-}
 
 func TestConfigDirSuffix(t *testing.T) {
 	tests := []struct {
@@ -271,6 +72,8 @@ func TestConfigDirSuffix(t *testing.T) {
 }
 
 func TestCompactName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		input  string
@@ -301,10 +104,24 @@ func TestCompactName(t *testing.T) {
 			maxLen: 30,
 			want:   "",
 		},
+		{
+			name:   "multibyte unicode",
+			input:  "日本語テスト文字列",
+			maxLen: 5,
+			want:   "日本…字列",
+		},
+		{
+			name:   "maxLen 3",
+			input:  "abcdef",
+			maxLen: 3,
+			want:   "a…f",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := compactName(tt.input, tt.maxLen)
 			if got != tt.want {
 				t.Errorf("compactName(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
@@ -317,6 +134,8 @@ func TestCompactName(t *testing.T) {
 }
 
 func TestCwdName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		cwd    string
@@ -377,10 +196,30 @@ func TestCwdName(t *testing.T) {
 			maxLen: 30,
 			want:   "",
 		},
+		{
+			name:   "bare windows drive letter",
+			cwd:    "C:",
+			maxLen: 30,
+			want:   "",
+		},
+		{
+			name:   "dot cwd",
+			cwd:    ".",
+			maxLen: 30,
+			want:   "",
+		},
+		{
+			name:   "backslash only",
+			cwd:    `\`,
+			maxLen: 30,
+			want:   "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := cwdName(tt.cwd, tt.maxLen)
 			if got != tt.want {
 				t.Errorf("cwdName(%q, %d) = %q, want %q", tt.cwd, tt.maxLen, got, tt.want)
@@ -389,717 +228,51 @@ func TestCwdName(t *testing.T) {
 	}
 }
 
-func TestContextColorFunc(t *testing.T) {
-	colorFn := contextColorFunc(80)
+func BenchmarkRun(b *testing.B) {
+	// Use testdata files so the benchmark is fully offline.
+	stdinFile := "internal/stdin/testdata/stdin_pro_opus.json"
+	usageFile := "internal/usage/testdata/usage_pro.json"
+	statusFile := "internal/status/testdata/status.json"
 
-	tests := []struct {
-		name string
-		pct  int
-		want string
-	}{
-		{name: "smart zone 0%", pct: 0, want: green},
-		{name: "smart zone 40%", pct: 40, want: green},
-		{name: "dumb zone 41%", pct: 41, want: yellow},
-		{name: "dumb zone 60%", pct: 60, want: yellow},
-		{name: "danger zone 61%", pct: 61, want: orange},
-		{name: "danger zone 79%", pct: 79, want: orange},
-		{name: "near compaction 80%", pct: 80, want: red},
-		{name: "near compaction 100%", pct: 100, want: red},
+	stdinData, err := os.ReadFile(stdinFile)
+	if err != nil {
+		b.Fatalf("read stdin testdata: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := colorFn(tt.pct)
-			if got != tt.want {
-				t.Errorf("contextColorFunc(80)(%d) = %q, want %q", tt.pct, got, tt.want)
-			}
-		})
+	cfg := config{
+		usageFile:       usageFile,
+		statusFile:      statusFile,
+		gitBranchMaxLen: 30,
+		cwdMaxLen:       30,
 	}
-}
 
-func TestReadCacheRateLimited(t *testing.T) {
-	// Use a unique CLAUDE_CONFIG_DIR to isolate the cache file per test.
-	dir := t.TempDir()
-	t.Setenv("CLAUDE_CONFIG_DIR", dir)
-	if err := os.MkdirAll(cacheDir(), 0o700); err != nil {
-		t.Fatalf("create cache dir: %v", err)
+	// Discard stdout to avoid benchmark noise.
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		b.Fatal(err)
 	}
-	cachePath := cacheFilePath()
-	t.Cleanup(func() { os.Remove(cachePath) })
+	defer devNull.Close()
+	origStdout := os.Stdout
+	os.Stdout = devNull
+	defer func() { os.Stdout = origStdout }()
 
-	t.Run("rate limited with future RetryAfter returns sentinel error", func(t *testing.T) {
-		entry := cacheEntry{
-			Timestamp:   time.Now().Unix(),
-			OK:          false,
-			RateLimited: true,
-			RetryAfter:  time.Now().Add(5 * time.Minute).Unix(),
-		}
-		data, err := json.Marshal(entry)
+	b.ResetTimer()
+	for b.Loop() {
+		r, w, err := os.Pipe()
 		if err != nil {
-			t.Fatal(err)
+			b.Fatal(err)
 		}
-		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
-			t.Fatal(err)
+		if _, err := w.Write(stdinData); err != nil {
+			b.Fatal(err)
 		}
+		w.Close()
 
-		_, err = readCache()
-		if !errors.Is(err, errCachedRateLimited) {
-			t.Errorf("readCache() error = %v, want %v", err, errCachedRateLimited)
+		os.Stdin = r
+		if err := run(cfg); err != nil {
+			b.Fatalf("run: %v", err)
 		}
-	})
-
-	t.Run("rate limited with past RetryAfter returns cache expired", func(t *testing.T) {
-		entry := cacheEntry{
-			Timestamp:   time.Now().Add(-time.Minute).Unix(),
-			OK:          false,
-			RateLimited: true,
-			RetryAfter:  time.Now().Add(-time.Second).Unix(),
-		}
-		data, err := json.Marshal(entry)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = readCache()
-		if err == nil || errors.Is(err, errCachedRateLimited) {
-			t.Errorf("readCache() error = %v, want cache expired", err)
-		}
-	})
-
-	t.Run("rate limited without RetryAfter uses default TTL fallback", func(t *testing.T) {
-		// Simulates cache written by an older version without RetryAfter.
-		entry := cacheEntry{
-			Timestamp:   time.Now().Unix(),
-			OK:          false,
-			RateLimited: true,
-		}
-		data, err := json.Marshal(entry)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = readCache()
-		if !errors.Is(err, errCachedRateLimited) {
-			t.Errorf("readCache() error = %v, want %v", err, errCachedRateLimited)
-		}
-	})
-
-	t.Run("rate limited without RetryAfter expired returns cache expired", func(t *testing.T) {
-		entry := cacheEntry{
-			Timestamp:   time.Now().Add(-cacheTTLRateLimitDefault - time.Second).Unix(),
-			OK:          false,
-			RateLimited: true,
-		}
-		data, err := json.Marshal(entry)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-
-		_, err = readCache()
-		if err == nil || errors.Is(err, errCachedRateLimited) {
-			t.Errorf("readCache() error = %v, want cache expired", err)
-		}
-	})
-}
-
-func TestParseRetryAfter(t *testing.T) {
-	tests := []struct {
-		name  string
-		value string
-		want  time.Duration
-	}{
-		{
-			name:  "empty returns default",
-			value: "",
-			want:  cacheTTLRateLimitDefault,
-		},
-		{
-			name:  "integer seconds",
-			value: "120",
-			want:  120 * time.Second,
-		},
-		{
-			name:  "clamped to max backoff",
-			value: "7200",
-			want:  cacheTTLRateLimitMaxBackoff,
-		},
-		{
-			name:  "zero returns default",
-			value: "0",
-			want:  cacheTTLRateLimitDefault,
-		},
-		{
-			name:  "negative returns default",
-			value: "-10",
-			want:  cacheTTLRateLimitDefault,
-		},
-		{
-			name:  "unparseable returns default",
-			value: "not-a-number",
-			want:  cacheTTLRateLimitDefault,
-		},
+		r.Close()
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := parseRetryAfter(tt.value)
-			if got != tt.want {
-				t.Errorf("parseRetryAfter(%q) = %v, want %v", tt.value, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestUsageResponseUnmarshal(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  usageResponse
-	}{
-		{
-			name: "full response with all fields",
-			input: `{
-				"five_hour": {"utilization": 8.0, "resets_at": "2026-03-09T11:00:00+00:00"},
-				"seven_day": {"utilization": 31.0, "resets_at": "2026-03-15T08:00:00+00:00"},
-				"seven_day_sonnet": {"utilization": 12, "resets_at": "2026-03-09T13:00:00+00:00"},
-				"seven_day_opus": {"utilization": 45, "resets_at": "2026-03-09T14:00:00+00:00"},
-				"seven_day_oauth_apps": null,
-				"seven_day_cowork": {"utilization": 5, "resets_at": "2026-03-10T08:00:00+00:00"},
-				"iguana_necktie": null,
-				"extra_usage": {"is_enabled": true, "monthly_limit": 5000, "used_credits": 1234, "utilization": null}
-			}`,
-			want: usageResponse{
-				FiveHour:       &quotaLimit{Utilization: 8.0, ResetsAt: "2026-03-09T11:00:00+00:00"},
-				SevenDay:       &quotaLimit{Utilization: 31.0, ResetsAt: "2026-03-15T08:00:00+00:00"},
-				SevenDaySonnet: &quotaLimit{Utilization: 12, ResetsAt: "2026-03-09T13:00:00+00:00"},
-				SevenDayOpus:   &quotaLimit{Utilization: 45, ResetsAt: "2026-03-09T14:00:00+00:00"},
-				SevenDayCowork: &quotaLimit{Utilization: 5, ResetsAt: "2026-03-10T08:00:00+00:00"},
-				ExtraUsage: &extraUsage{
-					IsEnabled:    true,
-					MonthlyLimit: new(float64(5000)),
-					UsedCredits:  new(float64(1234)),
-				},
-			},
-		},
-		{
-			name: "minimal response with nulls",
-			input: `{
-				"five_hour": {"utilization": 0, "resets_at": null},
-				"seven_day": {"utilization": 14, "resets_at": "2026-03-13T08:00:00+00:00"},
-				"seven_day_sonnet": null,
-				"seven_day_opus": null,
-				"seven_day_oauth_apps": null,
-				"seven_day_cowork": null,
-				"iguana_necktie": null,
-				"extra_usage": {"is_enabled": false, "monthly_limit": null, "used_credits": null, "utilization": null}
-			}`,
-			want: usageResponse{
-				FiveHour: &quotaLimit{Utilization: 0},
-				SevenDay: &quotaLimit{Utilization: 14, ResetsAt: "2026-03-13T08:00:00+00:00"},
-				ExtraUsage: &extraUsage{
-					IsEnabled: false,
-				},
-			},
-		},
-		{
-			name: "enterprise response with null quotas",
-			input: `{
-				"five_hour": null,
-				"seven_day": null,
-				"seven_day_sonnet": null,
-				"seven_day_opus": null,
-				"seven_day_oauth_apps": null,
-				"seven_day_cowork": null,
-				"iguana_necktie": null,
-				"extra_usage": {"is_enabled": true, "monthly_limit": 10000, "used_credits": 248, "utilization": 2.48}
-			}`,
-			want: usageResponse{
-				ExtraUsage: &extraUsage{
-					IsEnabled:    true,
-					MonthlyLimit: new(float64(10000)),
-					UsedCredits:  new(float64(248)),
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var got usageResponse
-			if err := json.Unmarshal([]byte(tt.input), &got); err != nil {
-				t.Fatalf("Unmarshal() error = %v", err)
-			}
-			assertQuotaLimitPtr(t, "FiveHour", got.FiveHour, tt.want.FiveHour)
-			assertQuotaLimitPtr(t, "SevenDay", got.SevenDay, tt.want.SevenDay)
-			assertQuotaLimitPtr(t, "SevenDaySonnet", got.SevenDaySonnet, tt.want.SevenDaySonnet)
-			assertQuotaLimitPtr(t, "SevenDayOpus", got.SevenDayOpus, tt.want.SevenDayOpus)
-			assertQuotaLimitPtr(t, "SevenDayCowork", got.SevenDayCowork, tt.want.SevenDayCowork)
-			assertExtraUsage(t, got.ExtraUsage, tt.want.ExtraUsage)
-		})
-	}
-}
-
-func assertQuotaLimitPtr(t *testing.T, name string, got, want *quotaLimit) {
-	t.Helper()
-	if got == nil && want == nil {
-		return
-	}
-	if (got == nil) != (want == nil) {
-		t.Errorf("%s: got %v, want %v", name, got, want)
-		return
-	}
-	if *got != *want {
-		t.Errorf("%s = %+v, want %+v", name, *got, *want)
-	}
-}
-
-func assertExtraUsage(t *testing.T, got, want *extraUsage) {
-	t.Helper()
-	if got == nil && want == nil {
-		return
-	}
-	if (got == nil) != (want == nil) {
-		t.Errorf("ExtraUsage: got %v, want %v", got, want)
-		return
-	}
-	if got.IsEnabled != want.IsEnabled {
-		t.Errorf("ExtraUsage.IsEnabled = %v, want %v", got.IsEnabled, want.IsEnabled)
-	}
-	assertFloat64Ptr(t, "ExtraUsage.MonthlyLimit", got.MonthlyLimit, want.MonthlyLimit)
-	assertFloat64Ptr(t, "ExtraUsage.UsedCredits", got.UsedCredits, want.UsedCredits)
-}
-
-func assertFloat64Ptr(t *testing.T, name string, got, want *float64) {
-	t.Helper()
-	if (got == nil) != (want == nil) {
-		t.Errorf("%s: got %v, want %v", name, got, want)
-		return
-	}
-	if got != nil && *got != *want {
-		t.Errorf("%s = %v, want %v", name, *got, *want)
-	}
-}
-
-func TestFormatExtraUsage(t *testing.T) {
-	tests := []struct {
-		name  string
-		extra *extraUsage
-		want  string
-	}{
-		{
-			name:  "nil extra usage",
-			extra: nil,
-			want:  "",
-		},
-		{
-			name:  "disabled",
-			extra: &extraUsage{IsEnabled: false},
-			want:  "",
-		},
-		{
-			name:  "enabled with zero usage - hidden",
-			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(0))},
-			want:  "",
-		},
-		{
-			name:  "enabled with usage below threshold",
-			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(1234))},
-			want:  "$12/$50",
-		},
-		{
-			name:  "enabled at 80% - red",
-			extra: &extraUsage{IsEnabled: true, MonthlyLimit: new(float64(5000)), UsedCredits: new(float64(4000))},
-			want:  red + "$40/$50" + ansiReset,
-		},
-		{
-			name:  "enabled with nil fields",
-			extra: &extraUsage{IsEnabled: true, MonthlyLimit: nil, UsedCredits: nil},
-			want:  "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatExtraUsage(tt.extra)
-			if got != tt.want {
-				t.Errorf("formatExtraUsage() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormatQuotaSubBar(t *testing.T) {
-	now := time.Date(2026, 3, 9, 10, 0, 0, 0, time.UTC)
-
-	tests := []struct {
-		name    string
-		q       *quotaLimit
-		label   string
-		wantPct string // expected percentage string in output.
-	}{
-		{
-			name:  "nil quota",
-			q:     nil,
-			label: "sonnet",
-		},
-		{
-			name:    "sonnet at 12%",
-			q:       &quotaLimit{Utilization: 12, ResetsAt: "2026-03-09T13:00:00+00:00"},
-			label:   "sonnet",
-			wantPct: "12%",
-		},
-		{
-			name:    "opus at 45%",
-			q:       &quotaLimit{Utilization: 45, ResetsAt: "2026-03-09T14:00:00+00:00"},
-			label:   "opus",
-			wantPct: "45%",
-		},
-		{
-			name:    "cowork at 5%",
-			q:       &quotaLimit{Utilization: 5, ResetsAt: "2026-03-10T08:00:00+00:00"},
-			label:   "cowork",
-			wantPct: "5%",
-		},
-		{
-			name:    "oauth at 0%",
-			q:       &quotaLimit{Utilization: 0, ResetsAt: "2026-03-10T08:00:00+00:00"},
-			label:   "oauth",
-			wantPct: "0%",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatQuotaSubBar(tt.q, tt.label, now)
-			if tt.q == nil {
-				if got != "" {
-					t.Errorf("formatQuotaSubBar(nil) = %q, want empty", got)
-				}
-				return
-			}
-			if !strings.Contains(got, tt.label) {
-				t.Errorf("formatQuotaSubBar() = %q, missing label %q", got, tt.label)
-			}
-			if !strings.Contains(got, tt.wantPct) {
-				t.Errorf("formatQuotaSubBar() = %q, missing percentage %q", got, tt.wantPct)
-			}
-		})
-	}
-}
-
-func TestRenderOutput(t *testing.T) {
-	subSep := dim + " · " + ansiReset
-	sep := dim + " │ " + ansiReset
-	ident := cyan + "[Opus 4.6 | Pro]" + ansiReset
-	identCwd := ident + sep + yellow + "myproject" + ansiReset
-	identBranch := ident + sep + magenta + "feat/foo" + ansiReset
-	identCwdBranch := ident + sep + yellow + "myproject" + ansiReset + sep + magenta + "feat/foo" + ansiReset
-
-	tests := []struct {
-		name            string
-		identity        string
-		contextBar      string
-		usage5h         string
-		usage7d         string
-		usageExtra      string
-		statusIndicator string
-		want            string
-	}{
-		// Minimal: identity + context only.
-		{
-			name:       "identity and context only",
-			identity:   ident,
-			contextBar: "█░░░░ 23%",
-			want:       ident + sep + "█░░░░ 23%",
-		},
-		// Identity variants with cwd/branch.
-		{
-			name:       "with cwd",
-			identity:   identCwd,
-			contextBar: "█░░░░ 23%",
-			want:       identCwd + sep + "█░░░░ 23%",
-		},
-		{
-			name:       "with git branch",
-			identity:   identBranch,
-			contextBar: "█░░░░ 23%",
-			want:       identBranch + sep + "█░░░░ 23%",
-		},
-		{
-			name:       "with cwd and git branch",
-			identity:   identCwdBranch,
-			contextBar: "█░░░░ 23%",
-			want:       identCwdBranch + sep + "█░░░░ 23%",
-		},
-		// Usage bar combinations.
-		{
-			name:       "5h only",
-			identity:   ident,
-			contextBar: "█░░░░ 23%",
-			usage5h:    "░░░░░ 9% (13:00)",
-			want:       ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)",
-		},
-		{
-			name:       "5h and 7d",
-			identity:   ident,
-			contextBar: "█░░░░ 23%",
-			usage5h:    "░░░░░ 9% (13:00)",
-			usage7d:    "█░░░░ 31% (Sun 09:00)",
-			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
-				"█░░░░ 31% (Sun 09:00)",
-		},
-		{
-			name:       "7d with sub-bars",
-			identity:   ident,
-			contextBar: "█░░░░ 23%",
-			usage5h:    "░░░░░ 9% (13:00)",
-			usage7d:    "█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
-			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
-				"█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
-		},
-		// Extra usage variants.
-		{
-			name:       "with extra usage",
-			identity:   ident,
-			contextBar: "█░░░░ 23%",
-			usage5h:    "░░░░░ 9% (13:00)",
-			usage7d:    "█░░░░ 31% (Sun 09:00)",
-			usageExtra: "$40/$50",
-			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
-				"█░░░░ 31% (Sun 09:00)" + sep + "$40/$50",
-		},
-		{
-			name:       "with sub-bars and extra usage",
-			identity:   ident,
-			contextBar: "█░░░░ 23%",
-			usage5h:    "░░░░░ 9% (13:00)",
-			usage7d:    "█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)",
-			usageExtra: red + "$45/$50" + ansiReset,
-			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
-				"█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)" + sep +
-				red + "$45/$50" + ansiReset,
-		},
-		// Full combination: cwd + branch + all bars + extra.
-		{
-			name:       "all segments",
-			identity:   identCwdBranch,
-			contextBar: "██░░░ 42%",
-			usage5h:    "███░░ 62% (15:00)",
-			usage7d:    "█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)",
-			usageExtra: "$12/$50",
-			want: identCwdBranch + sep + "██░░░ 42%" + sep + "███░░ 62% (15:00)" + sep +
-				"█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)" + sep + "$12/$50",
-		},
-		// Status indicator variants.
-		{
-			name:            "with status indicator",
-			identity:        ident,
-			contextBar:      "█░░░░ 23%",
-			statusIndicator: orange + "🔥▂" + ansiReset,
-			want:            ident + sep + "█░░░░ 23%" + sep + orange + "🔥▂" + ansiReset,
-		},
-		{
-			name:            "all segments with status indicator",
-			identity:        ident,
-			contextBar:      "█░░░░ 23%",
-			usage5h:         "░░░░░ 9% (13:00)",
-			usage7d:         "█░░░░ 31% (Sun 09:00)",
-			statusIndicator: orange + "🔥▆▄▂" + ansiReset,
-			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
-				"█░░░░ 31% (Sun 09:00)" + sep + orange + "🔥▆▄▂" + ansiReset,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := renderOutput(tt.identity, tt.contextBar, tt.usage5h, tt.usage7d, tt.usageExtra, tt.statusIndicator)
-			if got != tt.want {
-				t.Errorf("renderOutput() =\n  %q\nwant\n  %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormatResetTime(t *testing.T) {
-	// Use a fixed "now" for deterministic tests.
-	now := time.Date(2026, 3, 9, 10, 0, 0, 0, time.UTC)
-
-	// Test today: should NOT contain day name.
-	todayResult := formatResetTime("2026-03-09T13:00:00+00:00", now)
-	if todayResult == "" {
-		t.Fatal("formatResetTime returned empty for valid today timestamp")
-	}
-	if strings.Contains(todayResult, "Mon") || strings.Contains(todayResult, "Sun") ||
-		strings.Contains(todayResult, "Tue") {
-		t.Errorf("today reset should not contain day name, got %q", todayResult)
-	}
-
-	// Test different day: should contain day name.
-	futureResult := formatResetTime("2026-03-15T08:00:00+00:00", now)
-	if futureResult == "" {
-		t.Fatal("formatResetTime returned empty for valid future timestamp")
-	}
-	if !strings.Contains(futureResult, "Sun") {
-		t.Errorf("future reset should contain day name 'Sun', got %q", futureResult)
-	}
-
-	// Test empty.
-	emptyResult := formatResetTime("", now)
-	if emptyResult != "" {
-		t.Errorf("formatResetTime('') = %q, want empty", emptyResult)
-	}
-}
-
-func TestFormatStatusIndicator(t *testing.T) {
-	tests := []struct {
-		name   string
-		status *statusResponse
-		want   string
-	}{
-		{
-			name:   "nil status",
-			status: nil,
-			want:   "",
-		},
-		{
-			name: "operational",
-			status: func() *statusResponse {
-				s := &statusResponse{}
-				s.Status.Indicator = "none"
-				s.Status.Description = "All Systems Operational"
-				return s
-			}(),
-			want: "",
-		},
-		{
-			name: "minor disruption",
-			status: func() *statusResponse {
-				s := &statusResponse{}
-				s.Status.Indicator = "minor"
-				s.Status.Description = "Partially Degraded Service"
-				return s
-			}(),
-			want: orange + "🔥▂" + ansiReset,
-		},
-		{
-			name: "major disruption",
-			status: func() *statusResponse {
-				s := &statusResponse{}
-				s.Status.Indicator = "major"
-				s.Status.Description = "Major System Outage"
-				return s
-			}(),
-			want: orange + "🔥▄▂" + ansiReset,
-		},
-		{
-			name: "critical disruption",
-			status: func() *statusResponse {
-				s := &statusResponse{}
-				s.Status.Indicator = "critical"
-				s.Status.Description = "Critical System Outage"
-				return s
-			}(),
-			want: orange + "🔥▆▄▂" + ansiReset,
-		},
-		{
-			name: "unknown indicator",
-			status: func() *statusResponse {
-				s := &statusResponse{}
-				s.Status.Indicator = "maintenance"
-				s.Status.Description = "Scheduled Maintenance"
-				return s
-			}(),
-			want: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatStatusIndicator(tt.status)
-			if got != tt.want {
-				t.Errorf("formatStatusIndicator() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestReadStatusCache(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("CLAUDE_CONFIG_DIR", dir)
-	if err := os.MkdirAll(cacheDir(), 0o700); err != nil {
-		t.Fatalf("create cache dir: %v", err)
-	}
-	cachePath := statusCacheFilePath()
-	t.Cleanup(func() { os.Remove(cachePath) })
-
-	t.Run("valid cache returns status", func(t *testing.T) {
-		status := statusResponse{}
-		status.Status.Indicator = "minor"
-		status.Status.Description = "Partially Degraded Service"
-		statusData, _ := json.Marshal(status)
-		entry := statusCacheEntry{
-			Data:      statusData,
-			Timestamp: time.Now().Unix(),
-			OK:        true,
-		}
-		data, _ := json.Marshal(entry)
-		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-
-		got, err := readStatusCache()
-		if err != nil {
-			t.Fatalf("readStatusCache() error = %v", err)
-		}
-		if got.Status.Indicator != "minor" {
-			t.Errorf("readStatusCache().Status.Indicator = %q, want %q", got.Status.Indicator, "minor")
-		}
-	})
-
-	t.Run("expired cache returns error", func(t *testing.T) {
-		status := statusResponse{}
-		status.Status.Indicator = "minor"
-		statusData, _ := json.Marshal(status)
-		entry := statusCacheEntry{
-			Data:      statusData,
-			Timestamp: time.Now().Add(-statusCacheTTLOK - time.Second).Unix(),
-			OK:        true,
-		}
-		data, _ := json.Marshal(entry)
-		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-
-		_, err := readStatusCache()
-		if err == nil {
-			t.Error("readStatusCache() error = nil, want error (expired)")
-		}
-	})
-
-	t.Run("failed cache within TTL returns cached failure error", func(t *testing.T) {
-		entry := statusCacheEntry{
-			Timestamp: time.Now().Unix(),
-			OK:        false,
-		}
-		data, _ := json.Marshal(entry)
-		if err := os.WriteFile(cachePath, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-
-		_, err := readStatusCache()
-		if !errors.Is(err, errStatusCachedFailure) {
-			t.Errorf("readStatusCache() error = %v, want %v", err, errStatusCachedFailure)
-		}
-	})
 }
 
 func TestGetBranch(t *testing.T) {
@@ -1147,6 +320,19 @@ func TestGetBranch(t *testing.T) {
 		// Need a commit to detach from.
 		run("commit", "--allow-empty", "-m", "init")
 		run("switch", "--detach")
+		got := getBranch()
+		if got != "" {
+			t.Errorf("getBranch() = %q, want empty string", got)
+		}
+	})
+
+	t.Run("no git directory", func(t *testing.T) {
+		noGit := t.TempDir()
+		if err := os.Chdir(noGit); err != nil {
+			t.Fatal(err)
+		}
+		// Chdir back before TempDir cleanup — Windows can't remove the cwd.
+		t.Cleanup(func() { _ = os.Chdir(orig) })
 		got := getBranch()
 		if got != "" {
 			t.Errorf("getBranch() = %q, want empty string", got)

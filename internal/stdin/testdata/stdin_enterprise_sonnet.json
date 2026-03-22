@@ -2,15 +2,15 @@
   "context_window": {
     "context_window_size": 1000000,
     "current_usage": {
-      "cache_creation_input_tokens": 141,
-      "cache_read_input_tokens": 53611,
-      "input_tokens": 3,
-      "output_tokens": 95
+      "cache_creation_input_tokens": 239,
+      "cache_read_input_tokens": 28373,
+      "input_tokens": 1,
+      "output_tokens": 28
     },
-    "remaining_percentage": 95,
-    "total_input_tokens": 41156,
-    "total_output_tokens": 165562,
-    "used_percentage": 5
+    "remaining_percentage": 97,
+    "total_input_tokens": 41247,
+    "total_output_tokens": 178589,
+    "used_percentage": 3
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -22,15 +22,15 @@
   "cwd": "/sanitized/project",
   "exceeds_200k_tokens": false,
   "model": {
-    "display_name": "Opus 4.6 (1M context)",
-    "id": "claude-opus-4-6[1m]"
+    "display_name": "Sonnet 4.6 (1M context)",
+    "id": "claude-sonnet-4-6[1m]"
   },
   "output_style": {
     "name": "default"
   },
   "session_id": "sanitized-session-id",
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.80",
+  "version": "2.1.81",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",
