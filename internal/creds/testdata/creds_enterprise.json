@@ -1,0 +1,16 @@
+{
+  "claudeAiOauth": {
+    "accessToken": "sanitized",
+    "expiresAt": 0,
+    "rateLimitTier": "default_claude_zero",
+    "refreshToken": "sanitized",
+    "scopes": [
+      "user:file_upload",
+      "user:inference",
+      "user:mcp_servers",
+      "user:profile",
+      "user:sessions:claude_code"
+    ],
+    "subscriptionType": "enterprise"
+  }
+}

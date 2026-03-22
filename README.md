@@ -65,6 +65,8 @@ with no external dependencies (stdlib only).
 | `-cwd-max-len`        | `30`    | Max display length for working directory name        |
 | `-git-branch`         | `false` | Show git branch in the status line                   |
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
+| `-usage-file`         |         | Read usage data from file instead of API             |
+| `-status-file`        |         | Read status data from file instead of API            |
 | `-version`            | `false` | Print version and exit                               |
 
 Example with working directory and git branch enabled:
@@ -78,11 +80,9 @@ Example with working directory and git branch enabled:
 }
 ```
 
-## About
-
 ## Architecture
 
-Single-file (`main.go`), single-package (`main`) design.
+Single-binary design with `main.go` orchestrating `internal/` packages.
 
 **Data flow:** stdin JSON → parse input + read credentials → fetch usage
 (cached) + fetch status (cached) → render ANSI output → stdout
@@ -110,6 +110,9 @@ Key components:
 - **Compaction warning:** A yellow `⚠` appears on the context bar when usage is
   within 5% of the auto-compaction threshold (85% by default, configurable via
   `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`).
+- **Extended context indicator:** A `🥵` appears on the context bar when
+  `exceeds_200k_tokens` is true, signaling the session has entered extended
+  context territory where model quality may degrade.
 - **Service status:** Fetches `https://status.claude.com/api/v2/status.json`
   (Atlassian Statuspage API, no auth required). Cached in
   `/tmp/claudeline/status.json` with 2min OK TTL, 30s fail TTL. Shows an orange
@@ -133,22 +136,55 @@ tests.
 
 ### Capturing and rendering
 
-1. Start Claude Code with `claudeline -debug`, make sure claudeline shows up.
-2. In a new terminal, run `./pok capture` (or
-   `./pok capture -config-dir ~/.claude-work` for a custom profile). This will
-   produce a `testdata/*.json` file.
-3. To render claudeline based on the json file, run `./pok render` (or e.g.
-   `./pok render -json testdata/stdin_v2.1.80_pro_opus.json` for a specific
-   file).
+Claudeline can be tested fully offline using a two-step workflow:
+
+1. **Capture** (requires credentials + network): Start Claude Code with
+   `claudeline -debug`, make sure claudeline shows up. In a new terminal, run
+   `./pok capture` (or `./pok capture -config-dir ~/.claude-work` for a custom
+   profile). This reads credentials, calls the usage and status APIs, and writes
+   the responses to testdata files under `internal/stdin/testdata/`,
+   `internal/creds/testdata/`, `internal/usage/testdata/`, and
+   `internal/status/testdata/`.
+2. **Render** (100% offline): Run `./pok render` to render the statusline from
+   the captured files. No credentials or network access needed. Use
+   `./pok render -json internal/stdin/testdata/stdin_pro_opus.json` to render a
+   specific stdin payload.
 
 ### Stdin payload schema
 
-The `testdata/stdin_*.json` files are named as
-`stdin_<version>_<plan>_<model>.json`. A comprehensive `stdinPayload` struct in
-`main_test.go` maps every known field. The `TestStdinPayloadSchema` test uses
-`DisallowUnknownFields` to detect when Claude Code adds new fields — if the test
-fails, update the `stdinPayload` struct and re-run `./pok capture` to refresh
-the testdata.
+The `internal/stdin/testdata/stdin_*.json` files are named as
+`stdin_<plan>_<model>.json` (version is stored in the JSON payload itself). A
+comprehensive `payload` struct in `internal/stdin/stdin_test.go` maps every
+known field. The `TestPayloadSchema` test uses `DisallowUnknownFields` to detect
+when Claude Code adds new fields — if the test fails, update the `payload`
+struct and re-run `./pok capture` to refresh the testdata.
+
+### Credentials schema
+
+The `internal/creds/testdata/creds_*.json` files are sanitized snapshots of
+Claude Code's OAuth credentials (tokens replaced with `"sanitized"`). A
+`credentials` struct in `internal/creds/creds_test.go` maps every known field.
+The `TestCredentialsSchema` test uses `DisallowUnknownFields` to detect schema
+changes — if the test fails, update the `credentials` struct and re-run
+`./pok capture` to refresh the testdata.
+
+### Usage API schema
+
+The `internal/usage/testdata/usage_*.json` files are snapshots of the OAuth
+usage API response (`api.anthropic.com/api/oauth/usage`), named as
+`usage_<plan>.json`. A `usageResponse` struct in `internal/usage/usage_test.go`
+maps every known field. The `TestUsageResponseSchema` test uses
+`DisallowUnknownFields` to detect schema changes — if the test fails, update the
+`usageResponse` struct and re-run `./pok capture` to refresh the testdata.
+
+### Status API schema
+
+The `internal/status/testdata/status.json` file is a snapshot of the Atlassian
+Statuspage API response (`status.claude.com/api/v2/status.json`). A
+`statusResponse` struct in `internal/status/status_test.go` maps every known
+field. The `TestStatusResponseSchema` test uses `DisallowUnknownFields` to
+detect schema changes — if the test fails, update the `statusResponse` struct
+and re-run `./pok capture` to refresh the testdata.
 
 ## References
 

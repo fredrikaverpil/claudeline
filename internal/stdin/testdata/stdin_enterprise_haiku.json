@@ -1,11 +1,16 @@
 {
   "context_window": {
     "context_window_size": 200000,
-    "current_usage": null,
-    "remaining_percentage": null,
-    "total_input_tokens": 0,
-    "total_output_tokens": 0,
-    "used_percentage": null
+    "current_usage": {
+      "cache_creation_input_tokens": 239,
+      "cache_read_input_tokens": 28373,
+      "input_tokens": 1,
+      "output_tokens": 28
+    },
+    "remaining_percentage": 86,
+    "total_input_tokens": 41247,
+    "total_output_tokens": 178589,
+    "used_percentage": 14
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -17,25 +22,15 @@
   "cwd": "/sanitized/project",
   "exceeds_200k_tokens": false,
   "model": {
-    "display_name": "Opus 4.6",
-    "id": "claude-opus-4-6"
+    "display_name": "Haiku 4.5",
+    "id": "claude-haiku-4-5-20251001"
   },
   "output_style": {
     "name": "default"
   },
-  "rate_limits": {
-    "five_hour": {
-      "resets_at": 1774033200,
-      "used_percentage": 7.000000000000001
-    },
-    "seven_day": {
-      "resets_at": 1774166400,
-      "used_percentage": 95
-    }
-  },
   "session_id": "sanitized-session-id",
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.80",
+  "version": "2.1.81",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",
