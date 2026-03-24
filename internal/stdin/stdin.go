@@ -16,6 +16,9 @@ type Data struct {
 		UsedPercentage *float64 `json:"used_percentage"`
 	} `json:"context_window"`
 	Exceeds200kTokens bool `json:"exceeds_200k_tokens"`
+	Cost              struct {
+		TotalCostUSD float64 `json:"total_cost_usd"`
+	} `json:"cost"`
 }
 
 // Parse unmarshals the Claude Code stdin JSON.

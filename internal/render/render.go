@@ -148,6 +148,11 @@ func ExtraUsage(used, limit int) string {
 	return s
 }
 
+// Cost formats a USD cost value for display (e.g. "$1.23").
+func Cost(usd float64) string {
+	return Dim + fmt.Sprintf("$%.2f", usd) + Reset
+}
+
 // QuotaSubBar renders a per-model quota bar with a trailing label.
 func QuotaSubBar(pct int, label, resetTime string) string {
 	s := Bar(pct, QuotaColor) + " " + label
