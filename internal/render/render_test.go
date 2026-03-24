@@ -49,12 +49,15 @@ func TestRenderOutput(t *testing.T) {
 	identBranch := ident + sep + Magenta + "feat/foo" + Reset
 	identCwdBranch := ident + sep + Yellow + "myproject" + Reset + sep + Magenta + "feat/foo" + Reset
 
+	costStr := Dim + "$0.04" + Reset
+
 	tests := []struct {
 		name            string
 		identity        string
 		contextBar      string
 		usage5h         string
 		usage7d         string
+		cost            string
 		usageExtra      string
 		statusIndicator string
 		updateIndicator string
@@ -134,16 +137,36 @@ func TestRenderOutput(t *testing.T) {
 				"█░░░░ 31% (Sun 09:00)" + subSep + "░░░░░ 12% son (14:00)" + sep +
 				Red + "$45/$50" + Reset,
 		},
-		// Full combination: cwd + branch + all bars + extra.
+		// Cost variants.
+		{
+			name:       "with cost only",
+			identity:   ident,
+			contextBar: "█░░░░ 23%",
+			cost:       costStr,
+			want:       ident + sep + "█░░░░ 23%" + sep + costStr,
+		},
+		{
+			name:       "cost before extra usage",
+			identity:   ident,
+			contextBar: "█░░░░ 23%",
+			usage5h:    "░░░░░ 9% (13:00)",
+			usage7d:    "█░░░░ 31% (Sun 09:00)",
+			cost:       costStr,
+			usageExtra: "$40/$50",
+			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
+				"█░░░░ 31% (Sun 09:00)" + sep + costStr + sep + "$40/$50",
+		},
+		// Full combination: cwd + branch + all bars + cost + extra.
 		{
 			name:       "all segments",
 			identity:   identCwdBranch,
 			contextBar: "██░░░ 42%",
 			usage5h:    "███░░ 62% (15:00)",
 			usage7d:    "█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)",
+			cost:       costStr,
 			usageExtra: "$12/$50",
 			want: identCwdBranch + sep + "██░░░ 42%" + sep + "███░░ 62% (15:00)" + sep +
-				"█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)" + sep + "$12/$50",
+				"█░░░░ 27% (Fri 09:00)" + subSep + "░░░░░ 1% son (Tue 08:00)" + sep + costStr + sep + "$12/$50",
 		},
 		// Status indicator variants.
 		{
@@ -190,6 +213,7 @@ func TestRenderOutput(t *testing.T) {
 				tt.contextBar,
 				tt.usage5h,
 				tt.usage7d,
+				tt.cost,
 				tt.usageExtra,
 				tt.statusIndicator,
 				tt.updateIndicator,
@@ -467,6 +491,32 @@ func TestContextColorFunc_custom_warnPct(t *testing.T) {
 			got := colorFn(tt.pct)
 			if got != tt.want {
 				t.Errorf("ContextColorFunc(85)(%d) = %q, want %q", tt.pct, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		usd  float64
+		want string
+	}{
+		{name: "zero", usd: 0, want: Dim + "$0.00" + Reset},
+		{name: "small", usd: 0.05, want: Dim + "$0.05" + Reset},
+		{name: "typical", usd: 1.23, want: Dim + "$1.23" + Reset},
+		{name: "large", usd: 42.5, want: Dim + "$42.50" + Reset},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := Cost(tt.usd)
+			if got != tt.want {
+				t.Errorf("Cost(%v) = %q, want %q", tt.usd, got, tt.want)
 			}
 		})
 	}

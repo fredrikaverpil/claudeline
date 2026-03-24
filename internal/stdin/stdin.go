@@ -26,6 +26,9 @@ type Data struct {
 		FiveHour *RateLimit `json:"five_hour"`
 		SevenDay *RateLimit `json:"seven_day"`
 	} `json:"rate_limits"`
+	Cost struct {
+		TotalCostUSD float64 `json:"total_cost_usd"`
+	} `json:"cost"`
 }
 
 // Parse unmarshals the Claude Code stdin JSON.
