@@ -65,6 +65,7 @@ func Read(ctx context.Context, configDir, keychainService string) (Credentials, 
 }
 
 // PlanName maps a subscription type to a display name.
+// TODO: add case for "free" plan (we don't know the key yet).
 func PlanName(subType string) string {
 	lower := strings.ToLower(subType)
 	switch {

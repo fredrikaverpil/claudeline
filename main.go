@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/fredrikaverpil/claudeline/internal/creds"
+	"github.com/fredrikaverpil/claudeline/internal/policy"
 	"github.com/fredrikaverpil/claudeline/internal/render"
 	"github.com/fredrikaverpil/claudeline/internal/status"
 	"github.com/fredrikaverpil/claudeline/internal/stdin"
@@ -235,6 +236,9 @@ func run(cfg config) error {
 			usage5h = render.Bar(pct5, render.QuotaColor)
 			if reset := render.ResetTime(usageResp.FiveHour.ResetsAt, now); reset != "" {
 				usage5h += " (" + reset + ")"
+			}
+			if policy.IsPeakHours(now, subType) {
+				usage5h = "⚡️" + usage5h
 			}
 		}
 

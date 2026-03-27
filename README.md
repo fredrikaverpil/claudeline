@@ -106,7 +106,10 @@ Key components:
 - **Quota bars:** 5-char width using `█`/`░` (blue/magenta/red) for 5-hour and
   7-day quotas. Per-model sub-bars (sonnet, opus, cowork, oauth) appended to the
   7-day bar with `·` sub-separator. Extra usage shown as `$used/$limit` (hidden
-  when $0, red at 80%+ of limit).
+  when $0, red at 80%+ of limit). A `⚡️` prefix appears on the 5-hour bar during
+  peak hours (weekdays 13:00–19:00 UTC) for Pro and Max plans,
+  when the 5-hour session limit
+  [burns faster than normal](https://xcancel.com/trq212/status/2037254607001559305#m).
 - **Compaction warning:** A yellow `⚠` appears on the context bar when usage is
   within 5% of the auto-compaction threshold (85% by default, configurable via
   `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`).

@@ -366,6 +366,7 @@ func resolvePlanName(ctx context.Context, configDir string) (string, error) {
 }
 
 // planName mirrors claudeline's planName() but returns lowercase for filenames.
+// TODO: add case for "free" plan (we don't know the key yet)
 func planName(subType string) string {
 	lower := strings.ToLower(subType)
 	switch {
