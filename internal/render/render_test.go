@@ -57,6 +57,7 @@ func TestRenderOutput(t *testing.T) {
 		usage7d         string
 		usageExtra      string
 		statusIndicator string
+		updateIndicator string
 		want            string
 	}{
 		// Minimal: identity + context only.
@@ -162,13 +163,37 @@ func TestRenderOutput(t *testing.T) {
 			want: ident + sep + "█░░░░ 23%" + sep + "░░░░░ 9% (13:00)" + sep +
 				"█░░░░ 31% (Sun 09:00)" + sep + Orange + "🔥▆▄▂" + Reset,
 		},
+		// Update indicator variants.
+		{
+			name:            "with update indicator",
+			identity:        ident,
+			contextBar:      "█░░░░ 23%",
+			updateIndicator: Green + "↑" + Reset,
+			want:            ident + sep + "█░░░░ 23%" + sep + Green + "↑" + Reset,
+		},
+		{
+			name:            "with status and update indicators",
+			identity:        ident,
+			contextBar:      "█░░░░ 23%",
+			statusIndicator: Orange + "🔥▂" + Reset,
+			updateIndicator: Green + "↑" + Reset,
+			want:            ident + sep + "█░░░░ 23%" + sep + Orange + "🔥▂" + Reset + sep + Green + "↑" + Reset,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := Output(tt.identity, tt.contextBar, tt.usage5h, tt.usage7d, tt.usageExtra, tt.statusIndicator)
+			got := Output(
+				tt.identity,
+				tt.contextBar,
+				tt.usage5h,
+				tt.usage7d,
+				tt.usageExtra,
+				tt.statusIndicator,
+				tt.updateIndicator,
+			)
 			if got != tt.want {
 				t.Errorf("Output() =\n  %q\nwant\n  %q", got, tt.want)
 			}
@@ -231,6 +256,30 @@ func TestStatusIndicator(t *testing.T) {
 			got := StatusIndicator(tt.indicator)
 			if got != tt.want {
 				t.Errorf("StatusIndicator(%q) = %q, want %q", tt.indicator, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUpdateIndicator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		tag  string
+		want string
+	}{
+		{name: "empty", tag: "", want: ""},
+		{name: "version tag", tag: "v0.14.0", want: Green + "↑" + Reset},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := UpdateIndicator(tt.tag)
+			if got != tt.want {
+				t.Errorf("UpdateIndicator(%q) = %q, want %q", tt.tag, got, tt.want)
 			}
 		})
 	}

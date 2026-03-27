@@ -22,6 +22,7 @@ type RenderFlags struct {
 	JSON       string `flag:"json" usage:"path to a specific testdata JSON file"`
 	UsageFile  string `flag:"usage-file" usage:"path to usage testdata JSON file"`
 	StatusFile string `flag:"status-file" usage:"path to status testdata JSON file"`
+	UpdateFile string `flag:"update-file" usage:"path to update testdata JSON file"`
 }
 
 // Render runs testdata payloads through claudeline for manual inspection.
@@ -32,6 +33,7 @@ var Render = &pk.Task{
 	Flags: RenderFlags{
 		UsageFile:  "internal/usage/testdata/usage_pro.json",
 		StatusFile: "internal/status/testdata/status.json",
+		UpdateFile: "internal/update/testdata/release.json",
 	},
 	Do: func(ctx context.Context) error {
 		flags := run.GetFlags[RenderFlags](ctx)
@@ -73,7 +75,8 @@ var Render = &pk.Task{
 			if _, err := os.Stat(usageFile); err != nil {
 				usageFile = filepath.Join(dir, flags.UsageFile)
 			}
-			args := fmt.Sprintf("cat %s | %s -status-file %s -usage-file %s", f, bin, statusFile, usageFile)
+			updateFile := filepath.Join(dir, flags.UpdateFile)
+			args := fmt.Sprintf("cat %s | %s -status-file %s -usage-file %s -update-file %s", f, bin, statusFile, usageFile, updateFile)
 
 			cmd := exec.CommandContext(ctx, "sh", "-c", args)
 			cmd.Dir = dir
@@ -235,21 +238,47 @@ var Capture = &pk.Task{
 		statusJSON, statusErr := fetchStatusJSON(ctx)
 		if statusErr != nil {
 			run.Printf(ctx, "skipping status capture: %v\n", statusErr)
-			return nil
+		} else {
+			formattedStatus, err := json.MarshalIndent(statusJSON, "", "  ")
+			if err != nil {
+				return fmt.Errorf("format status JSON: %w", err)
+			}
+			statusTestdata := filepath.Join(dir, "internal", "status", "testdata")
+			if err := os.MkdirAll(statusTestdata, 0o755); err != nil {
+				return fmt.Errorf("create status testdata dir: %w", err)
+			}
+			statusPath := filepath.Join(statusTestdata, "status.json")
+			if err := os.WriteFile(statusPath, append(formattedStatus, '\n'), 0o644); err != nil {
+				return fmt.Errorf("write status testdata: %w", err)
+			}
+			run.Printf(ctx, "saved %s\n", statusPath)
 		}
-		formattedStatus, err := json.MarshalIndent(statusJSON, "", "  ")
-		if err != nil {
-			return fmt.Errorf("format status JSON: %w", err)
+
+		// Also capture GitHub release tag.
+		releaseJSON, releaseErr := fetchReleaseJSON(ctx)
+		if releaseErr != nil {
+			run.Printf(ctx, "skipping release capture: %v\n", releaseErr)
+		} else {
+			tagName, _ := releaseJSON["tag_name"].(string)
+			if tagName == "" {
+				run.Printf(ctx, "skipping release capture: no tag_name in response\n")
+			} else {
+				minimal := map[string]string{"tag_name": tagName}
+				formattedRelease, err := json.MarshalIndent(minimal, "", "  ")
+				if err != nil {
+					return fmt.Errorf("format release JSON: %w", err)
+				}
+				releaseTestdata := filepath.Join(dir, "internal", "update", "testdata")
+				if err := os.MkdirAll(releaseTestdata, 0o755); err != nil {
+					return fmt.Errorf("create release testdata dir: %w", err)
+				}
+				releasePath := filepath.Join(releaseTestdata, "release.json")
+				if err := os.WriteFile(releasePath, append(formattedRelease, '\n'), 0o644); err != nil {
+					return fmt.Errorf("write release testdata: %w", err)
+				}
+				run.Printf(ctx, "saved %s\n", releasePath)
+			}
 		}
-		statusTestdata := filepath.Join(dir, "internal", "status", "testdata")
-		if err := os.MkdirAll(statusTestdata, 0o755); err != nil {
-			return fmt.Errorf("create status testdata dir: %w", err)
-		}
-		statusPath := filepath.Join(statusTestdata, "status.json")
-		if err := os.WriteFile(statusPath, append(formattedStatus, '\n'), 0o644); err != nil {
-			return fmt.Errorf("write status testdata: %w", err)
-		}
-		run.Printf(ctx, "saved %s\n", statusPath)
 
 		return nil
 	},
@@ -507,6 +536,33 @@ func fetchStatusJSON(ctx context.Context) (map[string]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("execute request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+	var m map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return m, nil
+}
+
+// fetchReleaseJSON fetches the GitHub releases API response as a generic map.
+func fetchReleaseJSON(ctx context.Context) (map[string]any, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5_000_000_000) // 5s
+	defer cancel()
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, "https://api.github.com/repos/fredrikaverpil/claudeline/releases/latest", nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "claudeline")
 	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("execute request: %w", err)

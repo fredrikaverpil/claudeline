@@ -2,15 +2,15 @@
   "context_window": {
     "context_window_size": 200000,
     "current_usage": {
-      "cache_creation_input_tokens": 90626,
-      "cache_read_input_tokens": 6798,
+      "cache_creation_input_tokens": 422,
+      "cache_read_input_tokens": 123067,
       "input_tokens": 3,
-      "output_tokens": 31
+      "output_tokens": 531
     },
-    "remaining_percentage": 51,
-    "total_input_tokens": 405,
-    "total_output_tokens": 67004,
-    "used_percentage": 49
+    "remaining_percentage": 38,
+    "total_input_tokens": 7799,
+    "total_output_tokens": 70844,
+    "used_percentage": 62
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -30,17 +30,17 @@
   },
   "rate_limits": {
     "five_hour": {
-      "resets_at": 1774184400,
-      "used_percentage": 100
+      "resets_at": 1774656000,
+      "used_percentage": 59
     },
     "seven_day": {
       "resets_at": 1774771200,
-      "used_percentage": 11
+      "used_percentage": 57.99999999999999
     }
   },
   "session_id": "sanitized-session-id",
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.81",
+  "version": "2.1.85",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",

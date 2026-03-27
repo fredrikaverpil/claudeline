@@ -67,6 +67,7 @@ with no external dependencies (stdlib only).
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
 | `-usage-file`         |         | Read usage data from file instead of API             |
 | `-status-file`        |         | Read status data from file instead of API            |
+| `-update-file`        |         | Read update data from file instead of API            |
 | `-version`            | `false` | Print version and exit                               |
 
 Example with working directory and git branch enabled:
@@ -85,7 +86,8 @@ Example with working directory and git branch enabled:
 Single-binary design with `main.go` orchestrating `internal/` packages.
 
 **Data flow:** stdin JSON → parse input + read credentials → fetch usage
-(cached) + fetch status (cached) → render ANSI output → stdout
+(cached) + fetch status (cached) + check update (cached) → render ANSI output →
+stdout
 
 Key components:
 
@@ -116,6 +118,13 @@ Key components:
 - **Extended context indicator:** A `🥵` appears on the context bar when
   `exceeds_200k_tokens` is true, signaling the session has entered extended
   context territory where model quality may degrade.
+- **Update check:** Fetches
+  `https://api.github.com/repos/fredrikaverpil/claudeline/releases/latest`
+  (GitHub API, no auth required). Release tag is cached in
+  `/tmp/claudeline/update.json` with 24h OK TTL, 15s fail TTL. Shows a green `↑`
+  indicator when a newer version is available. Hidden when already on the latest
+  version or when the version cannot be determined (e.g. `(devel)`,
+  `(unknown)`).
 - **Service status:** Fetches `https://status.claude.com/api/v2/status.json`
   (Atlassian Statuspage API, no auth required). Cached in
   `/tmp/claudeline/status.json` with 2min OK TTL, 30s fail TTL. Shows an orange
@@ -146,8 +155,8 @@ Claudeline can be tested fully offline using a two-step workflow:
    `./pok capture` (or `./pok capture -config-dir ~/.claude-work` for a custom
    profile). This reads credentials, calls the usage and status APIs, and writes
    the responses to testdata files under `internal/stdin/testdata/`,
-   `internal/creds/testdata/`, `internal/usage/testdata/`, and
-   `internal/status/testdata/`.
+   `internal/creds/testdata/`, `internal/usage/testdata/`,
+   `internal/status/testdata/`, and `internal/update/testdata/`.
 2. **Render** (100% offline): Run `./pok render` to render the statusline from
    the captured files. No credentials or network access needed. Use
    `./pok render -json internal/stdin/testdata/stdin_pro_opus.json` to render a

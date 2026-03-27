@@ -23,6 +23,7 @@ import (
 	"github.com/fredrikaverpil/claudeline/internal/render"
 	"github.com/fredrikaverpil/claudeline/internal/status"
 	"github.com/fredrikaverpil/claudeline/internal/stdin"
+	"github.com/fredrikaverpil/claudeline/internal/update"
 	"github.com/fredrikaverpil/claudeline/internal/usage"
 )
 
@@ -43,12 +44,7 @@ func main() {
 // version (set by goreleaser), falling back to runtime/debug.ReadBuildInfo
 // (set by go install/run and local builds).
 func buildVersion() string {
-	v := version
-	if v == "" {
-		if info, ok := runtimedebug.ReadBuildInfo(); ok {
-			v = info.Main.Version
-		}
-	}
+	v := currentVersion()
 	if v == "" {
 		v = "(unknown)"
 	}
@@ -56,6 +52,20 @@ func buildVersion() string {
 		v += " (" + commit + ")"
 	}
 	return v
+}
+
+// currentVersion returns the bare semver string for the running binary.
+// It prefers the ldflags-injected version (set by goreleaser), falling back
+// to runtime/debug.ReadBuildInfo (set by go install). Returns "" when the
+// version cannot be determined (e.g. local dev builds).
+func currentVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := runtimedebug.ReadBuildInfo(); ok {
+		return info.Main.Version
+	}
+	return ""
 }
 
 // config holds CLI configuration.
@@ -69,6 +79,7 @@ type config struct {
 	debug      bool
 	usageFile  string
 	statusFile string
+	updateFile string
 }
 
 func runMain() int {
@@ -80,6 +91,7 @@ func runMain() int {
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
 	usageFile := flag.String("usage-file", "", "read usage data from file instead of API")
 	statusFile := flag.String("status-file", "", "read status data from file instead of API")
+	updateFile := flag.String("update-file", "", "read update data from file instead of API")
 	flag.Parse()
 
 	if *showVersion {
@@ -114,6 +126,7 @@ func runMain() int {
 		cwdMaxLen:       *cwdMaxLen,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
+		updateFile:      *updateFile,
 	}
 	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "claudeline: %v\n", err)
@@ -173,9 +186,10 @@ func run(cfg config) error {
 		contextBar += " 🥵"
 	}
 
-	// Fetch usage data and service status concurrently.
+	// Fetch usage data, service status, and update check concurrently.
 	var usageResp *usage.Response
 	var statusResp *status.Response
+	var updateResp *update.Response
 	var wg sync.WaitGroup
 
 	token := cred.ClaudeAiOauth.AccessToken
@@ -221,6 +235,22 @@ func run(cfg config) error {
 				log.Printf("status: %v", err)
 			}
 			statusResp = resp
+		}
+	})
+
+	wg.Go(func() {
+		if cfg.updateFile != "" {
+			resp, err := update.ReadResponse(cfg.updateFile)
+			if err != nil {
+				log.Printf("update: read file: %v", err)
+			}
+			updateResp = resp
+		} else {
+			resp, err := update.Fetch(ctx, currentVersion(), updateCacheFilePath())
+			if err != nil {
+				log.Printf("update: %v", err)
+			}
+			updateResp = resp
 		}
 	})
 
@@ -278,6 +308,12 @@ func run(cfg config) error {
 		statusStr = render.StatusIndicator(statusResp.Status.Indicator)
 	}
 
+	// Update indicator.
+	var updateStr string
+	if updateResp != nil {
+		updateStr = render.UpdateIndicator(updateResp.TagName)
+	}
+
 	// Render output.
 	var cwdStr, branchStr string
 	if cfg.showCwd {
@@ -300,7 +336,7 @@ func run(cfg config) error {
 		identityFull += sep + branchStr
 	}
 
-	output := render.Output(identityFull, contextBar, usage5h, usage7d, usageExtra, statusStr)
+	output := render.Output(identityFull, contextBar, usage5h, usage7d, usageExtra, statusStr, updateStr)
 
 	// Leading reset clears stale ANSI state from previous renders.
 	// Non-breaking spaces prevent the terminal from collapsing whitespace.
@@ -351,6 +387,11 @@ func cacheFilePath() string {
 // statusCacheFilePath returns the file path for the status cache.
 func statusCacheFilePath() string {
 	return filepath.Join(cacheDir(), "status"+configDirSuffix()+".json")
+}
+
+// updateCacheFilePath returns the file path for the update check cache.
+func updateCacheFilePath() string {
+	return filepath.Join(cacheDir(), "update"+configDirSuffix()+".json")
 }
 
 // stdinFilePath returns the file path for the latest stdin payload snapshot.

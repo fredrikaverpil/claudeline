@@ -82,7 +82,7 @@ func Identity(model, plan string) string {
 }
 
 // Output assembles all segments into a single-line status output.
-func Output(identity, contextBar, usage5h, usage7d, usageExtra, statusIndicator string) string {
+func Output(identity, contextBar, usage5h, usage7d, usageExtra, statusIndicator, updateIndicator string) string {
 	sep := Dim + " │ " + Reset
 
 	out := identity + sep + contextBar
@@ -98,7 +98,19 @@ func Output(identity, contextBar, usage5h, usage7d, usageExtra, statusIndicator 
 	if statusIndicator != "" {
 		out += sep + statusIndicator
 	}
+	if updateIndicator != "" {
+		out += sep + updateIndicator
+	}
 	return out
+}
+
+// UpdateIndicator returns a green arrow when a newer version is available.
+// Returns "" when tag is empty.
+func UpdateIndicator(tag string) string {
+	if tag == "" {
+		return ""
+	}
+	return Green + "↑" + Reset
 }
 
 // ResetTime formats a reset timestamp, showing just the time if it's
