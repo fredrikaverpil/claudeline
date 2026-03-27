@@ -167,7 +167,7 @@ func run(cfg config) error {
 	warnPct := compactPct - 5
 	contextBar := render.Bar(contextPct, render.ContextColorFunc(warnPct))
 	if contextPct >= warnPct {
-		contextBar += " " + render.Yellow + "⚠" + render.Reset
+		contextBar += " ⚠️"
 	}
 	if data.Exceeds200kTokens {
 		contextBar += " 🥵"
