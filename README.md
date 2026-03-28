@@ -19,7 +19,7 @@ with no external dependencies (stdlib only).
 > The bars may also disappear silently if the usage API is temporarily
 > unavailable or rate limited — use `-debug` to diagnose.
 
-## Legend
+## Indicator legend
 
 | Indicator            | Meaning                                                                                                      |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -101,9 +101,14 @@ stdout
 
 Key components:
 
-- **Credential resolution:** macOS Keychain (`security find-generic-password`)
-  first, falls back to `~/.claude/.credentials.json`. Works on any platform via
-  the file fallback. Failure is non-fatal (usage bars are omitted).
+- **Credential resolution:** Detects API provider from environment variables
+  first (`CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`,
+  `CLAUDE_CODE_USE_FOUNDRY`, `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`),
+  displaying "Bedrock", "Vertex", "Foundry", or "Anthropic API" instead of the plan name.
+  When no provider is detected, reads OAuth credentials from macOS Keychain
+  (`security find-generic-password`), falling back to
+  `~/.claude/.credentials.json`. Works on any platform via the file fallback.
+  Failure is non-fatal (usage bars are omitted).
 - **Usage API:** `GET https://api.anthropic.com/api/oauth/usage` with OAuth
   bearer token. 5-second HTTP timeout.
 - **File-based cache:** `/tmp/claudeline/usage.json` with 60s TTL on success,

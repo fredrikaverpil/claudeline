@@ -157,13 +157,19 @@ func run(cfg config) error {
 	if cfg.usageFile != "" && cfg.statusFile != "" {
 		plan = "Debug"
 	} else {
-		cred, err = creds.Read(ctx, os.Getenv("CLAUDE_CONFIG_DIR"), keychainServiceName())
-		if err != nil {
-			log.Printf("credentials: %v", err)
-		}
-		plan = creds.PlanName(cred.ClaudeAiOauth.SubscriptionType)
+		// Check for API provider first (Bedrock, Vertex, Foundry, API key).
+		plan = creds.Provider()
 		if plan == "" {
-			plan = "Unknown plan"
+			// Fall back to subscription type from OAuth credentials.
+			cred, err = creds.Read(ctx, os.Getenv("CLAUDE_CONFIG_DIR"), keychainServiceName())
+			if err != nil {
+				log.Printf("credentials: %v", err)
+			}
+			plan = creds.PlanName(cred.ClaudeAiOauth.SubscriptionType)
+			if plan == "" {
+				log.Printf("unknown plan: subscription_type=%q", cred.ClaudeAiOauth.SubscriptionType)
+				plan = "Unknown plan"
+			}
 		}
 	}
 
@@ -226,6 +232,10 @@ func run(cfg config) error {
 	})
 
 	wg.Go(func() {
+		// Skip status.claude.com for providers with their own infrastructure.
+		if creds.IsThirdPartyProvider(plan) {
+			return
+		}
 		if cfg.statusFile != "" {
 			resp, err := status.ReadResponse(cfg.statusFile)
 			if err != nil {
