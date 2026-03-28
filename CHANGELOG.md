@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/fredrikaverpil/claudeline/compare/v0.13.0...v0.14.0) (2026-03-28)
+
+
+### Features
+
+* show peak hours indicator for 5h limit (free/pro/max) ([#70](https://github.com/fredrikaverpil/claudeline/issues/70)) ([a1acd0e](https://github.com/fredrikaverpil/claudeline/commit/a1acd0e622f79dc5c7634aa6e81bb4213131603d))
+* show update indicator when newer version is available ([#72](https://github.com/fredrikaverpil/claudeline/issues/72)) ([7775ee3](https://github.com/fredrikaverpil/claudeline/commit/7775ee37e5d994d3dfaa2e0d132847099a2e0919))
+
 ## [0.13.0](https://github.com/fredrikaverpil/claudeline/compare/v0.12.0...v0.13.0) (2026-03-22)
 
 
