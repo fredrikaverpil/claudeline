@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -57,6 +58,7 @@ func Fetch(ctx context.Context, currentVersion, cachePath string) (*Response, er
 		return nil, nil
 	}
 
+	log.Printf("update: fetching")
 	release, fetchErr := fetchReleaseAPI(ctx)
 	if fetchErr != nil {
 		writeCache(cachePath, nil, false)
@@ -152,6 +154,7 @@ func fetchReleaseAPI(ctx context.Context) (*Response, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("update: unexpected status %d", resp.StatusCode)
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 

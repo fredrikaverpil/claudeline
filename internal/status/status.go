@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -58,6 +59,7 @@ func Fetch(ctx context.Context, cachePath string) (*Response, error) {
 		return nil, nil
 	}
 
+	log.Printf("status: fetching")
 	status, fetchErr := fetchStatusAPI(ctx)
 	if fetchErr != nil {
 		writeCache(cachePath, nil, false)
@@ -116,6 +118,7 @@ func fetchStatusAPI(ctx context.Context) (*Response, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("status: unexpected status %d", resp.StatusCode)
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 

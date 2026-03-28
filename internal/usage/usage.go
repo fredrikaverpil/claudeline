@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -78,6 +79,7 @@ func Fetch(ctx context.Context, token, cachePath string) (*Response, error) {
 	}
 
 	// Fetch from API.
+	log.Printf("usage: fetching")
 	usage, retryAfter, fetchErr := fetchUsageAPI(ctx, token)
 	if fetchErr != nil {
 		writeCache(cachePath, nil, false, retryAfter)
@@ -198,9 +200,11 @@ func doUsageRequest(ctx context.Context, token string) (_ *Response, rawRetryAft
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		raw := resp.Header.Get("Retry-After")
+		log.Printf("usage: rate limited, retry-after=%q", raw)
 		return nil, raw, fmt.Errorf("status %d, retry-after=%q: %w", resp.StatusCode, raw, errRateLimited)
 	}
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("usage: unexpected status %d", resp.StatusCode)
 		return nil, "", fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
