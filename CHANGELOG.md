@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.0](https://github.com/fredrikaverpil/claudeline/compare/v0.14.0...v0.15.0) (2026-03-28)
+
+
+### Features
+
+* **debug:** logs api calls and responses when -debug flag is active ([#75](https://github.com/fredrikaverpil/claudeline/issues/75)) ([ed50d72](https://github.com/fredrikaverpil/claudeline/commit/ed50d723a3701ceaf4bf8c4b6cf076e14f8807cf))
+
+
+### Bug Fixes
+
+* detect free plan ([#77](https://github.com/fredrikaverpil/claudeline/issues/77)) ([16ccbb4](https://github.com/fredrikaverpil/claudeline/commit/16ccbb437115321cb5dd1ba93436990b9ab2dc93))
+
 ## [0.14.0](https://github.com/fredrikaverpil/claudeline/compare/v0.13.0...v0.14.0) (2026-03-28)
 
 
