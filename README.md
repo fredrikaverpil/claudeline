@@ -19,6 +19,16 @@ with no external dependencies (stdlib only).
 > The bars may also disappear silently if the usage API is temporarily
 > unavailable or rate limited — use `-debug` to diagnose.
 
+## Legend
+
+| Indicator            | Meaning                                                     |
+| -------------------- | ----------------------------------------------------------- |
+| `⚡️`                 | Peak hours: 5-hour limit burns faster than normal           |
+| `⚠️`                 | Approaching auto-compaction threshold                       |
+| `🥵`                 | Extended context (>200k tokens) — model quality may degrade |
+| `↑`                  | Update available                                            |
+| `🔥▂` `🔥▄▂` `🔥▆▄▂` | Anthropic service disruption (minor / major / critical)     |
+
 ## Installation
 
 ### Via Claude Code plugin (recommended)
