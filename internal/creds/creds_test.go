@@ -136,6 +136,93 @@ func TestRead(t *testing.T) {
 	})
 }
 
+func TestProvider(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{
+			name: "bedrock",
+			env:  map[string]string{"CLAUDE_CODE_USE_BEDROCK": "1"},
+			want: "Bedrock",
+		},
+		{
+			name: "vertex",
+			env:  map[string]string{"CLAUDE_CODE_USE_VERTEX": "1"},
+			want: "Vertex",
+		},
+		{
+			name: "foundry",
+			env:  map[string]string{"CLAUDE_CODE_USE_FOUNDRY": "1"},
+			want: "Foundry",
+		},
+		{
+			name: "api_key",
+			env:  map[string]string{"ANTHROPIC_API_KEY": "sk-ant-xxx"},
+			want: "API",
+		},
+		{
+			name: "auth_token",
+			env:  map[string]string{"ANTHROPIC_AUTH_TOKEN": "bearer-token"},
+			want: "API",
+		},
+		{
+			name: "no_env_vars",
+			env:  map[string]string{},
+			want: "",
+		},
+		{
+			name: "bedrock_takes_precedence",
+			env: map[string]string{
+				"CLAUDE_CODE_USE_BEDROCK": "1",
+				"CLAUDE_CODE_USE_VERTEX":  "1",
+				"ANTHROPIC_API_KEY":       "sk-ant-xxx",
+			},
+			want: "Bedrock",
+		},
+		{
+			name: "vertex_over_api_key",
+			env: map[string]string{
+				"CLAUDE_CODE_USE_VERTEX": "1",
+				"ANTHROPIC_API_KEY":      "sk-ant-xxx",
+			},
+			want: "Vertex",
+		},
+		{
+			name: "both_api_key_and_auth_token",
+			env: map[string]string{
+				"ANTHROPIC_API_KEY":    "sk-ant-xxx",
+				"ANTHROPIC_AUTH_TOKEN": "bearer-token",
+			},
+			want: "API",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear relevant env vars first.
+			for _, key := range []string{
+				"CLAUDE_CODE_USE_BEDROCK",
+				"CLAUDE_CODE_USE_VERTEX",
+				"CLAUDE_CODE_USE_FOUNDRY",
+				"ANTHROPIC_API_KEY",
+				"ANTHROPIC_AUTH_TOKEN",
+			} {
+				t.Setenv(key, "")
+			}
+			// Set test-specific env vars.
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			got := Provider()
+			if got != tt.want {
+				t.Errorf("Provider() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPlanName(t *testing.T) {
 	t.Parallel()
 

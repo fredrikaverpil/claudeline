@@ -64,6 +64,25 @@ func Read(ctx context.Context, configDir, keychainService string) (Credentials, 
 	return creds, nil
 }
 
+// Provider returns the API provider name based on environment variables.
+// Returns empty string if no API provider is detected (subscription mode).
+// Precedence follows Claude Code's authentication order:
+// Bedrock > Vertex > Foundry > API key/bearer token.
+func Provider() string {
+	switch {
+	case os.Getenv("CLAUDE_CODE_USE_BEDROCK") == "1":
+		return "Bedrock"
+	case os.Getenv("CLAUDE_CODE_USE_VERTEX") == "1":
+		return "Vertex"
+	case os.Getenv("CLAUDE_CODE_USE_FOUNDRY") == "1":
+		return "Foundry"
+	case os.Getenv("ANTHROPIC_API_KEY") != "" || os.Getenv("ANTHROPIC_AUTH_TOKEN") != "":
+		return "API"
+	default:
+		return ""
+	}
+}
+
 // PlanName maps a subscription type to a display name.
 func PlanName(subType string) string {
 	lower := strings.ToLower(subType)
