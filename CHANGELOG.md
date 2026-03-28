@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/fredrikaverpil/claudeline/compare/v0.15.0...v0.16.0) (2026-03-28)
+
+
+### Features
+
+* **creds:** detect API provider from environment variables ([#78](https://github.com/fredrikaverpil/claudeline/issues/78)) ([e5f3452](https://github.com/fredrikaverpil/claudeline/commit/e5f34527221c718a77dd205122d6a5feedc6187f))
+
 ## [0.15.0](https://github.com/fredrikaverpil/claudeline/compare/v0.14.0...v0.15.0) (2026-03-28)
 
 
