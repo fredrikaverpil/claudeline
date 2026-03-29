@@ -74,6 +74,7 @@ type config struct {
 	gitBranchMaxLen int
 	showCwd         bool
 	cwdMaxLen       int
+	useUsageAPI     bool
 
 	// debug options
 	debug      bool
@@ -89,6 +90,7 @@ func runMain() int {
 	gitBranchMaxLen := flag.Int("git-branch-max-len", 30, "max display length for git branch")
 	showCwd := flag.Bool("cwd", false, "show working directory name in the status line")
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
+	useUsageAPI := flag.Bool("usage-api", false, "fetch usage data from the Anthropic API instead of stdin rate_limits")
 	usageFile := flag.String("usage-file", "", "read usage data from file instead of API")
 	statusFile := flag.String("status-file", "", "read status data from file instead of API")
 	updateFile := flag.String("update-file", "", "read update data from file instead of API")
@@ -124,6 +126,7 @@ func runMain() int {
 		gitBranchMaxLen: *gitBranchMaxLen,
 		showCwd:         *showCwd,
 		cwdMaxLen:       *cwdMaxLen,
+		useUsageAPI:     *useUsageAPI,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
 		updateFile:      *updateFile,
@@ -201,6 +204,7 @@ func run(cfg config) error {
 	}
 
 	// Fetch usage data, service status, and update check concurrently.
+	fetchUsageAPI := cfg.useUsageAPI || cfg.usageFile != ""
 	var usageResp *usage.Response
 	var statusResp *status.Response
 	var updateResp *update.Response
@@ -210,15 +214,15 @@ func run(cfg config) error {
 	subType := cred.ClaudeAiOauth.SubscriptionType
 
 	// Providers have no 5h/7d quotas — skip credential use and usage API.
-	if !isProvider {
-		if cfg.usageFile != "" {
-			resp, err := usage.ReadResponse(cfg.usageFile)
-			if err != nil {
-				log.Printf("usage: read file: %v", err)
-			}
-			usageResp = resp
-		} else {
-			wg.Go(func() {
+	if !isProvider && fetchUsageAPI {
+		wg.Go(func() {
+			if cfg.usageFile != "" {
+				resp, err := usage.ReadResponse(cfg.usageFile)
+				if err != nil {
+					log.Printf("usage: read file: %v", err)
+				}
+				usageResp = resp
+			} else {
 				switch {
 				case token == "":
 					log.Printf("usage: no access token found")
@@ -235,8 +239,8 @@ func run(cfg config) error {
 					}
 					usageResp = resp
 				}
-			})
-		}
+			}
+		})
 	}
 
 	if !creds.IsThirdPartyProvider(plan) {
@@ -277,9 +281,10 @@ func run(cfg config) error {
 
 	// Usage bars.
 	var usage5h, usage7d, usageExtra string
-	if usageResp != nil {
-		now := time.Now()
-		// 5-hour bar (null on enterprise).
+	now := time.Now()
+
+	if fetchUsageAPI && usageResp != nil {
+		// Full API-based usage: sub-bars, extra usage, peak hours.
 		if usageResp.FiveHour != nil {
 			pct5 := int(math.Round(usageResp.FiveHour.Utilization))
 			usage5h = render.Bar(pct5, render.QuotaColor)
@@ -291,7 +296,6 @@ func run(cfg config) error {
 			}
 		}
 
-		// 7-day bar, plus per-model sub-bars (null on enterprise).
 		if usageResp.SevenDay != nil {
 			pct7 := int(math.Round(usageResp.SevenDay.Utilization))
 			usage7d = render.Bar(pct7, render.QuotaColor)
@@ -315,9 +319,36 @@ func run(cfg config) error {
 			}
 		}
 
-		// Extra usage.
 		if e := usageResp.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
 			usageExtra = render.ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
+		}
+	} else if data.RateLimits != nil {
+		// Stdin-based usage: aggregate bars only (no sub-bars, extra usage, or peak hours).
+		if rl := data.RateLimits.FiveHour; rl != nil && rl.UsedPercentage != nil {
+			pct5 := int(math.Round(*rl.UsedPercentage))
+			usage5h = render.Bar(pct5, render.QuotaColor)
+			if rl.ResetsAt != nil {
+				reset := render.ResetTime(
+					time.Unix(int64(*rl.ResetsAt), 0).UTC().Format(time.RFC3339),
+					now,
+				)
+				if reset != "" {
+					usage5h += " (" + reset + ")"
+				}
+			}
+		}
+		if rl := data.RateLimits.SevenDay; rl != nil && rl.UsedPercentage != nil {
+			pct7 := int(math.Round(*rl.UsedPercentage))
+			usage7d = render.Bar(pct7, render.QuotaColor)
+			if rl.ResetsAt != nil {
+				reset := render.ResetTime(
+					time.Unix(int64(*rl.ResetsAt), 0).UTC().Format(time.RFC3339),
+					now,
+				)
+				if reset != "" {
+					usage7d += " (" + reset + ")"
+				}
+			}
 		}
 	}
 
