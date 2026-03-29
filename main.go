@@ -201,8 +201,6 @@ func run(cfg config) error {
 	}
 
 	// Fetch usage data, service status, and update check concurrently.
-	// Providers skip usage entirely — they have no 5h/7d quotas.
-	fetchUsageAPI := !isProvider && (cfg.useUsageAPI || cfg.usageFile != "")
 	var usageResp *usage.Response
 	var statusResp *status.Response
 	var updateResp *update.Response
@@ -211,32 +209,35 @@ func run(cfg config) error {
 	token := cred.ClaudeAiOauth.AccessToken
 	subType := cred.ClaudeAiOauth.SubscriptionType
 
-	wg.Go(func() {
-		if cfg.usageFile != "" {
-			resp, err := usage.ReadResponse(cfg.usageFile)
-			if err != nil {
-				log.Printf("usage: read file: %v", err)
-			}
-			usageResp = resp
-		} else {
-			switch {
-			case token == "":
-				log.Printf("usage: no access token found")
-			case plan == "":
-				log.Printf(
-					"usage: unknown subscription type %q, expected pro/max/team/enterprise",
-					subType,
-				)
-			default:
-				resp, err := usage.Fetch(ctx, token, cacheFilePath())
-				if err != nil && !errors.Is(err, usage.ErrCachedRateLimited) &&
-					!errors.Is(err, usage.ErrCachedFailure) {
-					log.Printf("usage: %v", err)
+	// Providers have no 5h/7d quotas — skip credential use and usage API.
+	if !isProvider {
+		wg.Go(func() {
+			if cfg.usageFile != "" {
+				resp, err := usage.ReadResponse(cfg.usageFile)
+				if err != nil {
+					log.Printf("usage: read file: %v", err)
 				}
 				usageResp = resp
+			} else {
+				switch {
+				case token == "":
+					log.Printf("usage: no access token found")
+				case plan == "":
+					log.Printf(
+						"usage: unknown subscription type %q, expected pro/max/team/enterprise",
+						subType,
+					)
+				default:
+					resp, err := usage.Fetch(ctx, token, cacheFilePath())
+					if err != nil && !errors.Is(err, usage.ErrCachedRateLimited) &&
+						!errors.Is(err, usage.ErrCachedFailure) {
+						log.Printf("usage: %v", err)
+					}
+					usageResp = resp
+				}
 			}
-		}
-	})
+		})
+	}
 
 	wg.Go(func() {
 		// Skip status.claude.com for providers with their own infrastructure.
@@ -319,34 +320,6 @@ func run(cfg config) error {
 		// Extra usage.
 		if e := usageResp.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
 			usageExtra = render.ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
-		}
-	} else if !isProvider && data.RateLimits != nil {
-		// Stdin-based usage: aggregate bars only (no sub-bars, extra usage, or peak hours).
-		if rl := data.RateLimits.FiveHour; rl != nil && rl.UsedPercentage != nil {
-			pct5 := int(math.Round(*rl.UsedPercentage))
-			usage5h = render.Bar(pct5, render.QuotaColor)
-			if rl.ResetsAt != nil {
-				reset := render.ResetTime(
-					time.Unix(int64(*rl.ResetsAt), 0).UTC().Format(time.RFC3339),
-					now,
-				)
-				if reset != "" {
-					usage5h += " (" + reset + ")"
-				}
-			}
-		}
-		if rl := data.RateLimits.SevenDay; rl != nil && rl.UsedPercentage != nil {
-			pct7 := int(math.Round(*rl.UsedPercentage))
-			usage7d = render.Bar(pct7, render.QuotaColor)
-			if rl.ResetsAt != nil {
-				reset := render.ResetTime(
-					time.Unix(int64(*rl.ResetsAt), 0).UTC().Format(time.RFC3339),
-					now,
-				)
-				if reset != "" {
-					usage7d += " (" + reset + ")"
-				}
-			}
 		}
 	}
 
