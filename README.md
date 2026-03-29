@@ -105,7 +105,7 @@ Key components:
 - **Credential resolution:** Detects API provider from environment variables
   first (`CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`,
   `CLAUDE_CODE_USE_FOUNDRY`, `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`),
-  displaying "Bedrock", "Vertex", "Foundry", or "Anthropic API" instead of the
+  displaying "Bedrock", "Vertex", "Foundry", or "API" instead of the
   plan name. When no provider is detected, reads OAuth credentials from macOS
   Keychain (`security find-generic-password`), falling back to
   `~/.claude/.credentials.json`. Works on any platform via the file fallback.

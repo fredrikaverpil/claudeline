@@ -160,12 +160,12 @@ func TestProvider(t *testing.T) {
 		{
 			name: "api_key",
 			env:  map[string]string{"ANTHROPIC_API_KEY": "sk-ant-xxx"},
-			want: "Anthropic API",
+			want: "API",
 		},
 		{
 			name: "auth_token",
 			env:  map[string]string{"ANTHROPIC_AUTH_TOKEN": "bearer-token"},
-			want: "Anthropic API",
+			want: "API",
 		},
 		{
 			name: "no_env_vars",
@@ -195,7 +195,7 @@ func TestProvider(t *testing.T) {
 				"ANTHROPIC_API_KEY":    "sk-ant-xxx",
 				"ANTHROPIC_AUTH_TOKEN": "bearer-token",
 			},
-			want: "Anthropic API",
+			want: "API",
 		},
 	}
 	for _, tt := range tests {
@@ -233,7 +233,7 @@ func TestIsThirdPartyProvider(t *testing.T) {
 		{"Bedrock", true},
 		{"Vertex", true},
 		{"Foundry", true},
-		{"Anthropic API", false},
+		{"API", false},
 		{"", false},
 		{"Pro", false},
 	}

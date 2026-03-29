@@ -69,7 +69,7 @@ const (
 	ProviderBedrock = "Bedrock"
 	ProviderVertex  = "Vertex"
 	ProviderFoundry = "Foundry"
-	ProviderAPI     = "Anthropic API"
+	ProviderAPI     = "API" // Anthropic's API
 )
 
 // thirdPartyProviders are providers that use non-Anthropic infrastructure
