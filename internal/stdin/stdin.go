@@ -5,6 +5,12 @@ import (
 	"fmt"
 )
 
+// RateLimit is a single rate limit entry from Claude Code's stdin JSON.
+type RateLimit struct {
+	UsedPercentage *float64 `json:"used_percentage"`
+	ResetsAt       *float64 `json:"resets_at"` // Unix timestamp
+}
+
 // Data is the JSON structure received from Claude Code via stdin.
 // See Payload in stdin_test.go for the full schema.
 type Data struct {
@@ -16,6 +22,10 @@ type Data struct {
 		UsedPercentage *float64 `json:"used_percentage"`
 	} `json:"context_window"`
 	Exceeds200kTokens bool `json:"exceeds_200k_tokens"`
+	RateLimits        *struct {
+		FiveHour *RateLimit `json:"five_hour"`
+		SevenDay *RateLimit `json:"seven_day"`
+	} `json:"rate_limits"`
 }
 
 // Parse unmarshals the Claude Code stdin JSON.

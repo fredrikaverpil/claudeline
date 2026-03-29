@@ -69,17 +69,18 @@ with no external dependencies (stdlib only).
 
 ## Flags
 
-| Flag                  | Default | Description                                          |
-| --------------------- | ------- | ---------------------------------------------------- |
-| `-debug`              | `false` | Write warnings/errors to `/tmp/claudeline/debug.log` |
-| `-cwd`                | `false` | Show working directory name in the status line       |
-| `-cwd-max-len`        | `30`    | Max display length for working directory name        |
-| `-git-branch`         | `false` | Show git branch in the status line                   |
-| `-git-branch-max-len` | `30`    | Max display length for git branch                    |
-| `-usage-file`         |         | Read usage data from file instead of API             |
-| `-status-file`        |         | Read status data from file instead of API            |
-| `-update-file`        |         | Read update data from file instead of API            |
-| `-version`            | `false` | Print version and exit                               |
+| Flag                  | Default | Description                                                          |
+| --------------------- | ------- | -------------------------------------------------------------------- |
+| `-debug`              | `false` | Write warnings/errors to `/tmp/claudeline/debug.log`                 |
+| `-cwd`                | `false` | Show working directory name in the status line                       |
+| `-cwd-max-len`        | `30`    | Max display length for working directory name                        |
+| `-git-branch`         | `false` | Show git branch in the status line                                   |
+| `-git-branch-max-len` | `30`    | Max display length for git branch                                    |
+| `-usage-api`          | `false` | Fetch usage from Anthropic API (enables sub-bars, extra usage, `⚡️`) |
+| `-usage-file`         |         | Read usage data from file instead of API                             |
+| `-status-file`        |         | Read status data from file instead of API                            |
+| `-update-file`        |         | Read update data from file instead of API                            |
+| `-version`            | `false` | Print version and exit                                               |
 
 Example with working directory and git branch enabled:
 
@@ -96,9 +97,9 @@ Example with working directory and git branch enabled:
 
 Single-binary design with `main.go` orchestrating `internal/` packages.
 
-**Data flow:** stdin JSON → parse input + read credentials → fetch usage
-(cached) + fetch status (cached) + check update (cached) → render ANSI output →
-stdout
+**Data flow:** stdin JSON → parse input + read credentials → build usage bars
+(from stdin `rate_limits` by default, or fetch from API with `-usage-api`) +
+fetch status (cached) + check update (cached) → render ANSI output → stdout
 
 Key components:
 
@@ -110,10 +111,17 @@ Key components:
   Keychain (`security find-generic-password`), falling back to
   `~/.claude/.credentials.json`. Works on any platform via the file fallback.
   Failure is non-fatal (usage bars are omitted).
-- **Usage API:** `GET https://api.anthropic.com/api/oauth/usage` with OAuth
-  bearer token. 5-second HTTP timeout.
+- **Quota bars (stdin, default):** By default, quota bars are built from the
+  `rate_limits` field in the stdin JSON payload. This provides aggregate 5-hour
+  and 7-day percentages with reset timestamps, without requiring credential
+  resolution or HTTP calls. Per-model sub-bars, extra usage costs, and the peak
+  hours indicator are not available in this mode.
+- **Quota bars (API, `-usage-api`):** When `-usage-api` or `-usage-file` is set,
+  usage is fetched from `GET https://api.anthropic.com/api/oauth/usage` with
+  OAuth bearer token. 5-second HTTP timeout. This enables per-model sub-bars,
+  extra usage costs, and the peak hours indicator.
 - **File-based cache:** `/tmp/claudeline/usage.json` with 60s TTL on success,
-  15s TTL on failure.
+  15s TTL on failure. Only used with `-usage-api`.
 - **Context bar:** 5-char width using `█`/`░` with four color zones inspired by
   [Dax Horthy's "dumb zone" theory](https://www.youtube.com/watch?v=rmvDxxNubIg&t=493s)
   on context window quality degradation:

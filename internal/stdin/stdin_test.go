@@ -21,9 +21,10 @@ type rateLimit struct {
 // DisallowUnknownFields to detect when Claude Code adds new fields.
 // Update this struct and testdata/*.json when the payload changes.
 type payload struct {
-	SessionID      string `json:"session_id"`
-	TranscriptPath string `json:"transcript_path"`
-	Cwd            string `json:"cwd"`
+	SessionID      string  `json:"session_id"`
+	SessionName    *string `json:"session_name"`
+	TranscriptPath string  `json:"transcript_path"`
+	Cwd            string  `json:"cwd"`
 	Model          struct {
 		ID          string `json:"id"`
 		DisplayName string `json:"display_name"`
@@ -208,6 +209,42 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
+			name: "rate_limits parsed",
+			input: `{"cwd":"/tmp","model":{"display_name":"Opus"},"context_window":{},` +
+				`"rate_limits":{"five_hour":{"used_percentage":28.5,"resets_at":1774785600},` +
+				`"seven_day":{"used_percentage":2.0,"resets_at":1775383200}}}`,
+			want: func() Data {
+				pct5h := 28.5
+				reset5h := float64(1774785600)
+				pct7d := 2.0
+				reset7d := float64(1775383200)
+				d := Data{
+					Cwd: "/tmp",
+					Model: struct {
+						DisplayName string `json:"display_name"`
+					}{DisplayName: "Opus"},
+				}
+				d.RateLimits = &struct {
+					FiveHour *RateLimit `json:"five_hour"`
+					SevenDay *RateLimit `json:"seven_day"`
+				}{
+					FiveHour: &RateLimit{UsedPercentage: &pct5h, ResetsAt: &reset5h},
+					SevenDay: &RateLimit{UsedPercentage: &pct7d, ResetsAt: &reset7d},
+				}
+				return d
+			}(),
+		},
+		{
+			name:  "rate_limits null",
+			input: `{"cwd":"/tmp","model":{"display_name":"Opus"},"context_window":{},"rate_limits":null}`,
+			want: Data{
+				Cwd: "/tmp",
+				Model: struct {
+					DisplayName string `json:"display_name"`
+				}{DisplayName: "Opus"},
+			},
+		},
+		{
 			name:  "extra unknown fields ignored",
 			input: `{"cwd":"/tmp","model":{"display_name":"Opus","id":"claude-opus-4"},"version":"2.0","unknown_field":true}`,
 			want: Data{
@@ -268,6 +305,15 @@ func TestParse(t *testing.T) {
 			if got.Exceeds200kTokens != tt.want.Exceeds200kTokens {
 				t.Errorf("Exceeds200kTokens = %v, want %v", got.Exceeds200kTokens, tt.want.Exceeds200kTokens)
 			}
+			switch {
+			case tt.want.RateLimits == nil && got.RateLimits != nil:
+				t.Errorf("RateLimits = %+v, want nil", got.RateLimits)
+			case tt.want.RateLimits != nil && got.RateLimits == nil:
+				t.Error("RateLimits is nil, want non-nil")
+			case tt.want.RateLimits != nil && got.RateLimits != nil:
+				assertRateLimit(t, "FiveHour", got.RateLimits.FiveHour, tt.want.RateLimits.FiveHour)
+				assertRateLimit(t, "SevenDay", got.RateLimits.SevenDay, tt.want.RateLimits.SevenDay)
+			}
 		})
 	}
 }
@@ -317,5 +363,25 @@ func TestPayloadSchema(t *testing.T) {
 				t.Error("context_window.context_window_size is 0")
 			}
 		})
+	}
+}
+
+// assertRateLimit compares two RateLimit pointers for equality.
+func assertRateLimit(t *testing.T, name string, got, want *RateLimit) {
+	t.Helper()
+	switch {
+	case want == nil && got != nil:
+		t.Errorf("RateLimits.%s = %+v, want nil", name, got)
+	case want != nil && got == nil:
+		t.Errorf("RateLimits.%s is nil, want non-nil", name)
+	case want != nil && got != nil:
+		if (got.UsedPercentage == nil) != (want.UsedPercentage == nil) ||
+			(got.UsedPercentage != nil && *got.UsedPercentage != *want.UsedPercentage) {
+			t.Errorf("RateLimits.%s.UsedPercentage = %v, want %v", name, got.UsedPercentage, want.UsedPercentage)
+		}
+		if (got.ResetsAt == nil) != (want.ResetsAt == nil) ||
+			(got.ResetsAt != nil && *got.ResetsAt != *want.ResetsAt) {
+			t.Errorf("RateLimits.%s.ResetsAt = %v, want %v", name, got.ResetsAt, want.ResetsAt)
+		}
 	}
 }
