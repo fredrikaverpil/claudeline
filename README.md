@@ -32,7 +32,7 @@ with no external dependencies (stdlib only).
 
 ## Installation
 
-### Via Claude Code plugin (recommended)
+### Via Claude Code plugin
 
 1. Inside Claude Code, add the plugin marketplace and install:
 
