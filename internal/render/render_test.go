@@ -472,6 +472,32 @@ func TestContextColorFunc_custom_warnPct(t *testing.T) {
 	}
 }
 
+func TestCost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		usd  float64
+		want string
+	}{
+		{name: "zero", usd: 0, want: Dim + "$0.00" + Reset},
+		{name: "small", usd: 0.05, want: Dim + "$0.05" + Reset},
+		{name: "typical", usd: 1.23, want: Dim + "$1.23" + Reset},
+		{name: "large", usd: 42.5, want: Dim + "$42.50" + Reset},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := Cost(tt.usd)
+			if got != tt.want {
+				t.Errorf("Cost(%v) = %q, want %q", tt.usd, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestResetTime_invalid(t *testing.T) {
 	t.Parallel()
 

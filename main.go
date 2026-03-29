@@ -74,6 +74,7 @@ type config struct {
 	gitBranchMaxLen int
 	showCwd         bool
 	cwdMaxLen       int
+	showCost        bool
 
 	// debug options
 	debug      bool
@@ -89,6 +90,7 @@ func runMain() int {
 	gitBranchMaxLen := flag.Int("git-branch-max-len", 30, "max display length for git branch")
 	showCwd := flag.Bool("cwd", false, "show working directory name in the status line")
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
+	showCost := flag.Bool("cost", false, "show session cost in the status line")
 	usageFile := flag.String("usage-file", "", "read usage data from file instead of API")
 	statusFile := flag.String("status-file", "", "read status data from file instead of API")
 	updateFile := flag.String("update-file", "", "read update data from file instead of API")
@@ -124,6 +126,7 @@ func runMain() int {
 		gitBranchMaxLen: *gitBranchMaxLen,
 		showCwd:         *showCwd,
 		cwdMaxLen:       *cwdMaxLen,
+		showCost:        *showCost,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
 		updateFile:      *updateFile,
@@ -347,6 +350,9 @@ func run(cfg config) error {
 	}
 	if branchStr != "" {
 		identityFull += sep + branchStr
+	}
+	if cfg.showCost && data.Cost.TotalCostUSD > 0 {
+		identityFull += sep + render.Cost(data.Cost.TotalCostUSD)
 	}
 
 	output := render.Output(identityFull, contextBar, usage5h, usage7d, usageExtra, statusStr, updateStr)
