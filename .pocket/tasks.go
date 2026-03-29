@@ -164,9 +164,13 @@ var Capture = &pk.Task{
 		} else {
 			plan, err := resolvePlanName(ctx, configDir)
 			if err != nil {
-				return fmt.Errorf("resolve plan: %w", err)
+				// No OAuth credentials found — likely API key usage without the
+				// env var set in this shell. Fall back to "api" as the prefix.
+				run.Printf(ctx, "warning: resolve plan: %v — assuming API key usage\n", err)
+				namePrefix = "api"
+			} else {
+				namePrefix = plan
 			}
-			namePrefix = plan
 		}
 
 		// Sanitize and pretty-print.
@@ -193,38 +197,39 @@ var Capture = &pk.Task{
 
 		run.Printf(ctx, "saved %s\n", outPath)
 
-		// Also capture sanitized credentials.
-		credsJSON, credsErr := readCredentials(ctx, configDir)
-		if credsErr != nil {
-			run.Printf(ctx, "skipping credentials capture: %v\n", credsErr)
-			return nil
-		}
-
-		// Extract access token before sanitization replaces it.
+		// Also capture sanitized credentials and extract access token for usage capture.
 		var accessToken string
-		if oauth, ok := credsJSON["claudeAiOauth"].(map[string]any); ok {
-			accessToken, _ = oauth["accessToken"].(string)
+		credsJSON, credsErr := readCredentials(ctx, configDir)
+		switch {
+		case credsErr == nil:
+			// Extract access token before sanitization replaces it.
+			if oauth, ok := credsJSON["claudeAiOauth"].(map[string]any); ok {
+				accessToken, _ = oauth["accessToken"].(string)
+			}
+			sanitizeCredentials(credsJSON)
+			formattedCreds, err := json.MarshalIndent(credsJSON, "", "  ")
+			if err != nil {
+				return fmt.Errorf("format credentials JSON: %w", err)
+			}
+			credsFile := fmt.Sprintf("creds_%s.json", namePrefix)
+			credsTestdata := filepath.Join(dir, "internal", "creds", "testdata")
+			if err := os.MkdirAll(credsTestdata, 0o755); err != nil {
+				return fmt.Errorf("create creds testdata dir: %w", err)
+			}
+			credsPath := filepath.Join(credsTestdata, credsFile)
+			if err := os.WriteFile(credsPath, append(formattedCreds, '\n'), 0o644); err != nil {
+				return fmt.Errorf("write credentials testdata: %w", err)
+			}
+			run.Printf(ctx, "saved %s\n", credsPath)
+		case namePrefix == "api":
+			// API key users have no OAuth credentials — expected, nothing to capture.
+		default:
+			run.Printf(ctx, "skipping credentials capture: %v\n", credsErr)
 		}
-
-		sanitizeCredentials(credsJSON)
-		formattedCreds, err := json.MarshalIndent(credsJSON, "", "  ")
-		if err != nil {
-			return fmt.Errorf("format credentials JSON: %w", err)
-		}
-		credsFile := fmt.Sprintf("creds_%s.json", namePrefix)
-		credsTestdata := filepath.Join(dir, "internal", "creds", "testdata")
-		if err := os.MkdirAll(credsTestdata, 0o755); err != nil {
-			return fmt.Errorf("create creds testdata dir: %w", err)
-		}
-		credsPath := filepath.Join(credsTestdata, credsFile)
-		if err := os.WriteFile(credsPath, append(formattedCreds, '\n'), 0o644); err != nil {
-			return fmt.Errorf("write credentials testdata: %w", err)
-		}
-		run.Printf(ctx, "saved %s\n", credsPath)
 
 		// Also capture usage API response.
 		if accessToken == "" {
-			run.Printf(ctx, "skipping usage capture: no access token found\n")
+			// API key users have no OAuth token for the usage endpoint — skip silently.
 		} else {
 			usageJSON, usageErr := fetchUsageJSON(ctx, accessToken)
 			if usageErr != nil {

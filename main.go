@@ -164,11 +164,13 @@ func run(cfg config) error {
 			cred, err = creds.Read(ctx, os.Getenv("CLAUDE_CONFIG_DIR"), keychainServiceName())
 			if err != nil {
 				log.Printf("credentials: %v", err)
-			}
-			plan = creds.PlanName(cred.ClaudeAiOauth.SubscriptionType)
-			if plan == "" {
-				log.Printf("unknown plan: subscription_type=%q", cred.ClaudeAiOauth.SubscriptionType)
-				plan = "Unknown plan"
+				plan = creds.ProviderAPI
+			} else {
+				plan = creds.PlanName(cred.ClaudeAiOauth.SubscriptionType)
+				if plan == "" {
+					log.Printf("unknown plan: subscription_type=%q", cred.ClaudeAiOauth.SubscriptionType)
+					plan = "Unknown plan"
+				}
 			}
 		}
 	}
