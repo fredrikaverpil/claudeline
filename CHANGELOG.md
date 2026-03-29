@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.0](https://github.com/fredrikaverpil/claudeline/compare/v0.16.0...v0.17.0) (2026-03-29)
+
+
+### Features
+
+* capture testdata from vertex/bedrock/foundry/anthropic api ([#82](https://github.com/fredrikaverpil/claudeline/issues/82)) ([3724903](https://github.com/fredrikaverpil/claudeline/commit/3724903f554467051adc57cdc8a6d579b35c8620))
+
+
+### Bug Fixes
+
+* credentials error when no credentials exist locally ([#84](https://github.com/fredrikaverpil/claudeline/issues/84)) ([529ff74](https://github.com/fredrikaverpil/claudeline/commit/529ff7427637a515b973dad33bec9d23d30578d8))
+* skip API calls in situations when providers are used ([#85](https://github.com/fredrikaverpil/claudeline/issues/85)) ([b390b2c](https://github.com/fredrikaverpil/claudeline/commit/b390b2c7d5a3f6378e59fa2c5b9c242c458eab23))
+
 ## [0.16.0](https://github.com/fredrikaverpil/claudeline/compare/v0.15.0...v0.16.0) (2026-03-28)
 
 
