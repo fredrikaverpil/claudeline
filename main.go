@@ -206,9 +206,6 @@ func run(cfg config) error {
 	var updateResp *update.Response
 	var wg sync.WaitGroup
 
-	token := cred.ClaudeAiOauth.AccessToken
-	subType := cred.ClaudeAiOauth.SubscriptionType
-
 	// Providers have no 5h/7d quotas — skip credential use and usage API.
 	if !isProvider {
 		if cfg.usageFile != "" {
@@ -218,27 +215,9 @@ func run(cfg config) error {
 			}
 			usageResp = resp
 		} else {
-			wg.Go(func() {
-				switch {
-				case token == "":
-					log.Printf("usage: no access token found")
-				case plan == "":
-					log.Printf(
-						"usage: unknown subscription type %q, expected pro/max/team/enterprise",
-						subType,
-					)
-				default:
-					resp, err := usage.Fetch(ctx, token, cacheFilePath())
-					if err != nil && !errors.Is(err, usage.ErrCachedRateLimited) &&
-						!errors.Is(err, usage.ErrCachedFailure) {
-						log.Printf("usage: %v", err)
-					}
-					usageResp = resp
-				}
-			})
+			fetchUsage(ctx, cred, plan, &wg, &usageResp)
 		}
 	}
-
 	if !creds.IsThirdPartyProvider(plan) {
 		if cfg.statusFile != "" {
 			resp, err := status.ReadResponse(cfg.statusFile)
@@ -247,16 +226,9 @@ func run(cfg config) error {
 			}
 			statusResp = resp
 		} else {
-			wg.Go(func() {
-				resp, err := status.Fetch(ctx, statusCacheFilePath())
-				if err != nil {
-					log.Printf("status: %v", err)
-				}
-				statusResp = resp
-			})
+			fetchStatus(ctx, &wg, &statusResp)
 		}
 	}
-
 	if cfg.updateFile != "" {
 		resp, err := update.ReadResponse(cfg.updateFile)
 		if err != nil {
@@ -264,13 +236,7 @@ func run(cfg config) error {
 		}
 		updateResp = resp
 	} else {
-		wg.Go(func() {
-			resp, err := update.Fetch(ctx, currentVersion(), updateCacheFilePath())
-			if err != nil {
-				log.Printf("update: %v", err)
-			}
-			updateResp = resp
-		})
+		fetchUpdate(ctx, &wg, &updateResp)
 	}
 
 	wg.Wait()
@@ -286,7 +252,7 @@ func run(cfg config) error {
 			if reset := render.ResetTime(usageResp.FiveHour.ResetsAt, now); reset != "" {
 				usage5h += " (" + reset + ")"
 			}
-			if policy.IsPeakHours(now, subType) {
+			if policy.IsPeakHours(now, cred.ClaudeAiOauth.SubscriptionType) {
 				usage5h = "⚡️" + usage5h
 			}
 		}
@@ -362,6 +328,58 @@ func run(cfg config) error {
 	output = render.Reset + strings.ReplaceAll(output, " ", "\u00A0")
 	_, err = fmt.Fprintln(os.Stdout, output)
 	return err
+}
+
+// fetchUsage fetches usage data from the API in a goroutine.
+func fetchUsage(
+	ctx context.Context,
+	cred creds.Credentials,
+	plan string,
+	wg *sync.WaitGroup,
+	out **usage.Response,
+) {
+	token := cred.ClaudeAiOauth.AccessToken
+	subType := cred.ClaudeAiOauth.SubscriptionType
+	wg.Go(func() {
+		switch {
+		case token == "":
+			log.Printf("usage: no access token found")
+		case plan == "":
+			log.Printf(
+				"usage: unknown subscription type %q, expected pro/max/team/enterprise",
+				subType,
+			)
+		default:
+			resp, err := usage.Fetch(ctx, token, cacheFilePath())
+			if err != nil && !errors.Is(err, usage.ErrCachedRateLimited) &&
+				!errors.Is(err, usage.ErrCachedFailure) {
+				log.Printf("usage: %v", err)
+			}
+			*out = resp
+		}
+	})
+}
+
+// fetchStatus fetches service status from the Atlassian Statuspage API in a goroutine.
+func fetchStatus(ctx context.Context, wg *sync.WaitGroup, out **status.Response) {
+	wg.Go(func() {
+		resp, err := status.Fetch(ctx, statusCacheFilePath())
+		if err != nil {
+			log.Printf("status: %v", err)
+		}
+		*out = resp
+	})
+}
+
+// fetchUpdate checks for a newer claudeline release from the GitHub API in a goroutine.
+func fetchUpdate(ctx context.Context, wg *sync.WaitGroup, out **update.Response) {
+	wg.Go(func() {
+		resp, err := update.Fetch(ctx, currentVersion(), updateCacheFilePath())
+		if err != nil {
+			log.Printf("update: %v", err)
+		}
+		*out = resp
+	})
 }
 
 // keychainServiceName returns the macOS Keychain service name used by Claude Code.
