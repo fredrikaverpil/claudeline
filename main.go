@@ -151,16 +151,19 @@ func run(cfg config) error {
 		return fmt.Errorf("parse stdin: %w", err)
 	}
 
-	// Read credentials (skipped when file overrides are set).
+	// Determine plan. API providers (Bedrock, Vertex, Foundry, API key) are
+	// detected from environment variables and skip credential resolution
+	// entirely — they have no 5h/7d usage quotas.
 	var cred creds.Credentials
 	var plan string
+	var isProvider bool
 	if cfg.usageFile != "" && cfg.statusFile != "" {
 		plan = "Debug"
 	} else {
-		// Check for API provider first (Bedrock, Vertex, Foundry, API key).
 		plan = creds.Provider()
-		if plan == "" {
-			// Fall back to subscription type from OAuth credentials.
+		isProvider = plan != ""
+		if !isProvider {
+			// No API provider detected — resolve OAuth credentials for subscription plan.
 			cred, err = creds.Read(ctx, os.Getenv("CLAUDE_CONFIG_DIR"), keychainServiceName())
 			if err != nil {
 				log.Printf("credentials: %v", err)
@@ -198,6 +201,8 @@ func run(cfg config) error {
 	}
 
 	// Fetch usage data, service status, and update check concurrently.
+	// Providers skip usage entirely — they have no 5h/7d quotas.
+	fetchUsageAPI := !isProvider && (cfg.useUsageAPI || cfg.usageFile != "")
 	var usageResp *usage.Response
 	var statusResp *status.Response
 	var updateResp *update.Response
@@ -314,6 +319,34 @@ func run(cfg config) error {
 		// Extra usage.
 		if e := usageResp.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
 			usageExtra = render.ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
+		}
+	} else if !isProvider && data.RateLimits != nil {
+		// Stdin-based usage: aggregate bars only (no sub-bars, extra usage, or peak hours).
+		if rl := data.RateLimits.FiveHour; rl != nil && rl.UsedPercentage != nil {
+			pct5 := int(math.Round(*rl.UsedPercentage))
+			usage5h = render.Bar(pct5, render.QuotaColor)
+			if rl.ResetsAt != nil {
+				reset := render.ResetTime(
+					time.Unix(int64(*rl.ResetsAt), 0).UTC().Format(time.RFC3339),
+					now,
+				)
+				if reset != "" {
+					usage5h += " (" + reset + ")"
+				}
+			}
+		}
+		if rl := data.RateLimits.SevenDay; rl != nil && rl.UsedPercentage != nil {
+			pct7 := int(math.Round(*rl.UsedPercentage))
+			usage7d = render.Bar(pct7, render.QuotaColor)
+			if rl.ResetsAt != nil {
+				reset := render.ResetTime(
+					time.Unix(int64(*rl.ResetsAt), 0).UTC().Format(time.RFC3339),
+					now,
+				)
+				if reset != "" {
+					usage7d += " (" + reset + ")"
+				}
+			}
 		}
 	}
 
