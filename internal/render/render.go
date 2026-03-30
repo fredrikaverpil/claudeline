@@ -127,7 +127,11 @@ func Build(p Params) string {
 			}
 		}
 
+		// Sub-bars for 7d usage limits.
 		subSep := Dim + " · " + Reset
+		if usage7d == "" {
+			subSep = " " + Reset
+		}
 		for _, model := range []struct {
 			q     *usage.QuotaLimit
 			label string
