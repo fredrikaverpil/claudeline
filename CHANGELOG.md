@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/fredrikaverpil/claudeline/compare/v0.17.0...v0.18.0) (2026-03-30)
+
+
+### Features
+
+* **usage:** use stdin for aggregate bars, API for sub-bars ([#87](https://github.com/fredrikaverpil/claudeline/issues/87)) ([e2d0272](https://github.com/fredrikaverpil/claudeline/commit/e2d0272d4fa7b96a1ec56cd82faab95a5fc4d754))
+
 ## [0.17.0](https://github.com/fredrikaverpil/claudeline/compare/v0.16.0...v0.17.0) (2026-03-30)
 
 
