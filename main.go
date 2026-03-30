@@ -66,7 +66,6 @@ type config struct {
 	gitBranchMaxLen int
 	showCwd         bool
 	cwdMaxLen       int
-	useUsageAPI     bool
 
 	// debug options
 	debug      bool
@@ -83,7 +82,6 @@ func runMain() int {
 	gitBranchMaxLen := flag.Int("git-branch-max-len", 30, "max display length for git branch")
 	showCwd := flag.Bool("cwd", false, "show working directory name in the status line")
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
-	useUsageAPI := flag.Bool("usage-api", false, "fetch usage from API instead of stdin rate_limits")
 	usageFile := flag.String("usage-file", "", "read usage data from file instead of API")
 	statusFile := flag.String("status-file", "", "read status data from file instead of API")
 	updateFile := flag.String("update-file", "", "read update data from file instead of API")
@@ -119,7 +117,6 @@ func runMain() int {
 		gitBranchMaxLen: *gitBranchMaxLen,
 		showCwd:         *showCwd,
 		cwdMaxLen:       *cwdMaxLen,
-		useUsageAPI:     *useUsageAPI,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
 		updateFile:      *updateFile,
@@ -139,10 +136,9 @@ func run(cfg config) error {
 		return err
 	}
 	debugMode := cfg.usageFile != "" && cfg.statusFile != ""
-	fetchUsageAPI := cfg.useUsageAPI || cfg.usageFile != ""
 	cred, sub, isProvider := creds.Resolve(ctx, debugMode, configDir)
 
-	remote := fetchRemoteData(ctx, cfg, cred, sub, isProvider, fetchUsageAPI)
+	remote := fetchRemoteData(ctx, cfg, cred, sub, isProvider)
 
 	output := render.Build(render.Params{
 		Sub:                sub,
@@ -197,14 +193,12 @@ func fetchRemoteData(
 	cred creds.Credentials,
 	sub string,
 	isProvider bool,
-	fetchUsageAPI bool,
 ) remoteData {
 	var rd remoteData
 	var wg sync.WaitGroup
 
 	// Providers have no 5h/7d quotas — skip usage API.
-	// When using stdin rate_limits (default), also skip the usage API.
-	if !isProvider && fetchUsageAPI {
+	if !isProvider {
 		token := cred.ClaudeAiOauth.AccessToken
 		switch {
 		case cfg.usageFile != "":

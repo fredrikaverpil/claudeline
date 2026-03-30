@@ -78,68 +78,54 @@ func Build(p Params) string {
 	}
 
 	// Usage bars.
+	// Aggregate 5h/7d bars come from stdin rate_limits (instant, no network).
+	// Per-model sub-bars and extra usage come from the usage API (when available).
 	var usage5h, usage7d, usageExtra string
+	now := time.Now()
+
+	// 5-hour bar from stdin.
+	if p.StdinRateLimits != nil && p.StdinRateLimits.FiveHour != nil && p.StdinRateLimits.FiveHour.UsedPercentage != nil {
+		pct5 := int(math.Round(*p.StdinRateLimits.FiveHour.UsedPercentage))
+		usage5h = Bar(pct5, QuotaColor)
+		if reset := ResetTimeUnix(p.StdinRateLimits.FiveHour.ResetsAt, now); reset != "" {
+			usage5h += " (" + reset + ")"
+		}
+		if policy.IsPeakHours(now, p.SubscriptionType) {
+			usage5h = "⚡️" + usage5h
+		}
+	}
+
+	// 7-day bar from stdin.
+	if p.StdinRateLimits != nil && p.StdinRateLimits.SevenDay != nil && p.StdinRateLimits.SevenDay.UsedPercentage != nil {
+		pct7 := int(math.Round(*p.StdinRateLimits.SevenDay.UsedPercentage))
+		usage7d = Bar(pct7, QuotaColor)
+		if reset := ResetTimeUnix(p.StdinRateLimits.SevenDay.ResetsAt, now); reset != "" {
+			usage7d += " (" + reset + ")"
+		}
+	}
+
+	// Per-model sub-bars and extra usage from the usage API.
 	if p.Usage != nil {
-		// Full API response available — render with sub-bars, extra usage, peak hours.
-		now := time.Now()
-		// 5-hour bar (null on enterprise).
-		if p.Usage.FiveHour != nil {
-			pct5 := int(math.Round(p.Usage.FiveHour.Utilization))
-			usage5h = Bar(pct5, QuotaColor)
-			if reset := ResetTime(p.Usage.FiveHour.ResetsAt, now); reset != "" {
-				usage5h += " (" + reset + ")"
-			}
-			if policy.IsPeakHours(now, p.SubscriptionType) {
-				usage5h = "⚡️" + usage5h
-			}
-		}
-
-		// 7-day bar, plus per-model sub-bars (null on enterprise).
-		if p.Usage.SevenDay != nil {
-			pct7 := int(math.Round(p.Usage.SevenDay.Utilization))
-			usage7d = Bar(pct7, QuotaColor)
-			if reset := ResetTime(p.Usage.SevenDay.ResetsAt, now); reset != "" {
-				usage7d += " (" + reset + ")"
-			}
-			subSep := Dim + " · " + Reset
-			for _, model := range []struct {
-				q     *usage.QuotaLimit
-				label string
-			}{
-				{p.Usage.SevenDaySonnet, "sonnet"},
-				{p.Usage.SevenDayOpus, "opus"},
-				{p.Usage.SevenDayCowork, "cowork"},
-				{p.Usage.SevenDayOAuthApp, "oauth"},
-			} {
-				if model.q != nil {
-					pct := int(math.Round(model.q.Utilization))
-					usage7d += subSep + QuotaSubBar(
-						pct, model.label, ResetTime(model.q.ResetsAt, now),
-					)
-				}
+		subSep := Dim + " · " + Reset
+		for _, model := range []struct {
+			q     *usage.QuotaLimit
+			label string
+		}{
+			{p.Usage.SevenDaySonnet, "sonnet"},
+			{p.Usage.SevenDayOpus, "opus"},
+			{p.Usage.SevenDayCowork, "cowork"},
+			{p.Usage.SevenDayOAuthApp, "oauth"},
+		} {
+			if model.q != nil {
+				pct := int(math.Round(model.q.Utilization))
+				usage7d += subSep + QuotaSubBar(
+					pct, model.label, ResetTime(model.q.ResetsAt, now),
+				)
 			}
 		}
 
-		// Extra usage.
 		if e := p.Usage.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
 			usageExtra = ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
-		}
-	} else if p.StdinRateLimits != nil {
-		// Stdin rate_limits — aggregate bars only (no sub-bars, extra usage, or peak hours).
-		now := time.Now()
-		if p.StdinRateLimits.FiveHour != nil && p.StdinRateLimits.FiveHour.UsedPercentage != nil {
-			pct5 := int(math.Round(*p.StdinRateLimits.FiveHour.UsedPercentage))
-			usage5h = Bar(pct5, QuotaColor)
-			if reset := ResetTimeUnix(p.StdinRateLimits.FiveHour.ResetsAt, now); reset != "" {
-				usage5h += " (" + reset + ")"
-			}
-		}
-		if p.StdinRateLimits.SevenDay != nil && p.StdinRateLimits.SevenDay.UsedPercentage != nil {
-			pct7 := int(math.Round(*p.StdinRateLimits.SevenDay.UsedPercentage))
-			usage7d = Bar(pct7, QuotaColor)
-			if reset := ResetTimeUnix(p.StdinRateLimits.SevenDay.ResetsAt, now); reset != "" {
-				usage7d += " (" + reset + ")"
-			}
 		}
 	}
 
