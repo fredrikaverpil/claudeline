@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fredrikaverpil/claudeline/internal/jsonfile"
@@ -70,6 +71,17 @@ func Fetch(ctx context.Context, currentVersion, cachePath string) (*Response, er
 		return release, nil
 	}
 	return nil, nil
+}
+
+// FetchAsync checks for a newer release in a goroutine. Results are written to *out.
+func FetchAsync(ctx context.Context, currentVersion, cachePath string, wg *sync.WaitGroup, out **Response) {
+	wg.Go(func() {
+		resp, err := Fetch(ctx, currentVersion, cachePath)
+		if err != nil {
+			log.Printf("update: %v", err)
+		}
+		*out = resp
+	})
 }
 
 // NewerAvailable compares two semver strings and returns true if latest > current.

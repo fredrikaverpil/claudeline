@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/fredrikaverpil/claudeline/internal/jsonfile"
@@ -71,6 +72,17 @@ func Fetch(ctx context.Context, cachePath string) (*Response, error) {
 		return nil, nil
 	}
 	return status, nil
+}
+
+// FetchAsync fetches service status in a goroutine. Results are written to *out.
+func FetchAsync(ctx context.Context, cachePath string, wg *sync.WaitGroup, out **Response) {
+	wg.Go(func() {
+		resp, err := Fetch(ctx, cachePath)
+		if err != nil {
+			log.Printf("status: %v", err)
+		}
+		*out = resp
+	})
 }
 
 // readCache reads and validates the cached status data.

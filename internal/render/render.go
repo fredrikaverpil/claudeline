@@ -2,8 +2,17 @@ package render
 
 import (
 	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fredrikaverpil/claudeline/internal/policy"
+	"github.com/fredrikaverpil/claudeline/internal/status"
+	"github.com/fredrikaverpil/claudeline/internal/update"
+	"github.com/fredrikaverpil/claudeline/internal/usage"
 )
 
 // ANSI color constants.
@@ -21,6 +30,127 @@ const (
 )
 
 const barWidth = 5
+
+// Params holds all data needed to build the statusline.
+type Params struct {
+	Sub                string
+	Model              string
+	ContextUsedPct     *float64 // nil when unavailable
+	CompactPctOverride string   // raw CLAUDE_AUTOCOMPACT_PCT_OVERRIDE value
+	Exceeds200kTokens  bool
+	Usage              *usage.Response
+	SubscriptionType   string // raw subscription type for peak hours check
+	Status             *status.Response
+	Update             *update.Response
+	ShowCwd            bool
+	Cwd                string // raw working directory path
+	CwdMaxLen          int
+	ShowBranch         bool
+	BranchMaxLen       int
+}
+
+// Build assembles the complete statusline string from all collected data.
+func Build(p Params) string {
+	// Identity.
+	identity := Identity(p.Model, p.Sub)
+
+	// Context bar.
+	contextPct := 0
+	if p.ContextUsedPct != nil {
+		contextPct = int(math.Round(*p.ContextUsedPct))
+	}
+	compactPct := 85
+	if v, err := strconv.Atoi(p.CompactPctOverride); err == nil && v > 0 && v <= 100 {
+		compactPct = v
+	}
+	warnPct := compactPct - 5
+	contextBar := Bar(contextPct, ContextColorFunc(warnPct))
+	if contextPct >= warnPct {
+		contextBar += " ⚠️"
+	}
+	if p.Exceeds200kTokens {
+		contextBar += " 🥵"
+	}
+
+	// Usage bars.
+	var usage5h, usage7d, usageExtra string
+	if p.Usage != nil {
+		now := time.Now()
+		// 5-hour bar (null on enterprise).
+		if p.Usage.FiveHour != nil {
+			pct5 := int(math.Round(p.Usage.FiveHour.Utilization))
+			usage5h = Bar(pct5, QuotaColor)
+			if reset := ResetTime(p.Usage.FiveHour.ResetsAt, now); reset != "" {
+				usage5h += " (" + reset + ")"
+			}
+			if policy.IsPeakHours(now, p.SubscriptionType) {
+				usage5h = "⚡️" + usage5h
+			}
+		}
+
+		// 7-day bar, plus per-model sub-bars (null on enterprise).
+		if p.Usage.SevenDay != nil {
+			pct7 := int(math.Round(p.Usage.SevenDay.Utilization))
+			usage7d = Bar(pct7, QuotaColor)
+			if reset := ResetTime(p.Usage.SevenDay.ResetsAt, now); reset != "" {
+				usage7d += " (" + reset + ")"
+			}
+			subSep := Dim + " · " + Reset
+			for _, model := range []struct {
+				q     *usage.QuotaLimit
+				label string
+			}{
+				{p.Usage.SevenDaySonnet, "sonnet"},
+				{p.Usage.SevenDayOpus, "opus"},
+				{p.Usage.SevenDayCowork, "cowork"},
+				{p.Usage.SevenDayOAuthApp, "oauth"},
+			} {
+				if model.q != nil {
+					pct := int(math.Round(model.q.Utilization))
+					usage7d += subSep + QuotaSubBar(
+						pct, model.label, ResetTime(model.q.ResetsAt, now),
+					)
+				}
+			}
+		}
+
+		// Extra usage.
+		if e := p.Usage.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
+			usageExtra = ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
+		}
+	}
+
+	// Service status.
+	var statusStr string
+	if p.Status != nil {
+		statusStr = StatusIndicator(p.Status.Status.Indicator)
+	}
+
+	// Update indicator.
+	var updateStr string
+	if p.Update != nil {
+		updateStr = UpdateIndicator(p.Update.TagName)
+	}
+
+	// Working directory and git branch.
+	sep := Dim + " │ " + Reset
+	identityFull := identity
+	if p.ShowCwd {
+		if name := cwdName(p.Cwd, p.CwdMaxLen); name != "" {
+			identityFull += sep + Yellow + name + Reset
+		}
+	}
+	if p.ShowBranch {
+		if name := compactName(getBranch(), p.BranchMaxLen); name != "" {
+			identityFull += sep + Magenta + name + Reset
+		}
+	}
+
+	out := Output(identityFull, contextBar, usage5h, usage7d, usageExtra, statusStr, updateStr)
+	// Leading reset clears stale ANSI state from previous renders.
+	// Non-breaking spaces prevent the terminal from collapsing whitespace.
+	return Reset + strings.ReplaceAll(out, " ", "\u00A0")
+}
 
 // Bar renders a progress bar with ANSI colors.
 func Bar(pct int, colorFn func(int) string) string {
@@ -167,4 +297,41 @@ func QuotaSubBar(pct int, label, resetTime string) string {
 		s += " (" + resetTime + ")"
 	}
 	return s
+}
+
+// getBranch returns the current git branch name, or "" if not in a git repo.
+func getBranch() string {
+	data, err := os.ReadFile(".git/HEAD")
+	if err != nil {
+		return ""
+	}
+	s := strings.TrimSpace(string(data))
+	if after, ok := strings.CutPrefix(s, "ref: refs/heads/"); ok {
+		return after
+	}
+	return "" // detached HEAD or bare repo
+}
+
+// cwdName extracts the last path segment from cwd as the folder name.
+func cwdName(cwd string, maxLen int) string {
+	// Normalize separators for cross-platform support.
+	name := filepath.Base(strings.ReplaceAll(cwd, `\`, "/"))
+	switch {
+	case name == "." || name == "/" || name == `\`:
+		return ""
+	case len(name) == 2 && name[1] == ':':
+		// Bare Windows drive letter (e.g. "C:") — root of a drive.
+		return ""
+	}
+	return compactName(name, maxLen)
+}
+
+// compactName truncates a name to maxLen runes using a Unicode ellipsis.
+func compactName(name string, maxLen int) string {
+	runes := []rune(name)
+	if len(runes) <= maxLen {
+		return name
+	}
+	half := (maxLen - 1) / 2
+	return string(runes[:half]) + "…" + string(runes[len(runes)-(maxLen-1-half):])
 }

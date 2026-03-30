@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/fredrikaverpil/claudeline/internal/paths"
 )
 
 const ioTimeout = 5 * time.Second
@@ -45,11 +48,7 @@ func Read(ctx context.Context, configDir, keychainService string) (Credentials, 
 
 	// File fallback.
 	if configDir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return Credentials{}, fmt.Errorf("get home dir: %w", err)
-		}
-		configDir = filepath.Join(home, ".claude")
+		configDir = paths.DefaultConfigDir()
 	}
 	data, err := os.ReadFile(
 		filepath.Join(configDir, ".credentials.json"),
@@ -102,6 +101,37 @@ func Provider() string {
 // IsThirdPartyProvider reports whether the provider uses non-Anthropic infrastructure.
 func IsThirdPartyProvider(provider string) bool {
 	return thirdPartyProviders[provider]
+}
+
+// Resolve determines the subscription type and credentials from environment
+// variables and local credential stores. API providers (Bedrock, Vertex,
+// Foundry, API key) skip credential resolution entirely. When debugMode is
+// true, the "Debug" plan is returned without any credential lookup.
+func Resolve(ctx context.Context, debugMode bool, configDir string) (Credentials, string, bool) {
+	if debugMode {
+		return Credentials{}, "Debug", false
+	}
+	sub := Provider()
+	if sub != "" {
+		return Credentials{}, sub, true
+	}
+	cred, err := Read(ctx, configDir, KeychainServiceName(configDir))
+	if err != nil {
+		log.Printf("credentials: %v", err)
+		return Credentials{}, ProviderAPI, false
+	}
+	sub = SubscriptionType(cred.ClaudeAiOauth.SubscriptionType)
+	if sub == "" {
+		log.Printf("unknown subscription type: subscription_type=%q", cred.ClaudeAiOauth.SubscriptionType)
+		sub = "Unknown subscription type"
+	}
+	return cred, sub, false
+}
+
+// KeychainServiceName returns the macOS Keychain service name used by Claude Code.
+// When configDir is non-empty, a hash suffix is appended to avoid collisions between profiles.
+func KeychainServiceName(configDir string) string {
+	return "Claude Code-credentials" + paths.ConfigDirSuffix(configDir)
 }
 
 // SubscriptionType maps a subscription type to a display name.

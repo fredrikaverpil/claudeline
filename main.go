@@ -2,24 +2,16 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
-	"path/filepath"
-	"runtime"
 	runtimedebug "runtime/debug"
-	"strconv"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/fredrikaverpil/claudeline/internal/creds"
-	"github.com/fredrikaverpil/claudeline/internal/policy"
+	"github.com/fredrikaverpil/claudeline/internal/paths"
 	"github.com/fredrikaverpil/claudeline/internal/render"
 	"github.com/fredrikaverpil/claudeline/internal/status"
 	"github.com/fredrikaverpil/claudeline/internal/stdin"
@@ -30,11 +22,10 @@ import (
 // version and commit are set via ldflags by goreleaser.
 // When empty, the version falls back to runtime/debug.ReadBuildInfo.
 var (
-	version string
-	commit  string
+	version   string
+	commit    string
+	configDir = os.Getenv("CLAUDE_CONFIG_DIR")
 )
-
-var debugLogFile = debugLogFilePath()
 
 func main() {
 	os.Exit(runMain())
@@ -84,6 +75,7 @@ type config struct {
 
 func runMain() int {
 	showVersion := flag.Bool("version", false, "print version and exit")
+	debugLogFile := paths.MustCacheFile(configDir, "debug.log")
 	debug := flag.Bool("debug", false, "write warnings and errors to "+debugLogFile)
 	showGitBranch := flag.Bool("git-branch", false, "show git branch in the status line")
 	gitBranchMaxLen := flag.Int("git-branch-max-len", 30, "max display length for git branch")
@@ -103,7 +95,7 @@ func runMain() int {
 
 	log.SetPrefix("claudeline: ")
 	log.SetFlags(log.Ldate | log.Ltime)
-	_ = os.MkdirAll(cacheDir(), 0o700)
+	_ = os.MkdirAll(paths.CacheDir(), 0o700)
 	if *debug {
 		// Truncate if over 1MB to prevent unbounded growth.
 		if info, err := os.Stat(debugLogFile); err == nil && info.Size() > 1024*1024 {
@@ -142,118 +134,28 @@ func run(cfg config) error {
 	if err != nil {
 		return err
 	}
-	cred, sub, isProvider := resolveCredentials(ctx, cfg)
+	debugMode := cfg.usageFile != "" && cfg.statusFile != ""
+	cred, sub, isProvider := creds.Resolve(ctx, debugMode, configDir)
 
 	remote := fetchRemoteData(ctx, cfg, cred, sub, isProvider)
 
-	// Identity.
-	identity := render.Identity(data.Model.DisplayName, sub)
+	output := render.Build(render.Params{
+		Sub:                sub,
+		Model:              data.Model.DisplayName,
+		ContextUsedPct:     data.ContextWindow.UsedPercentage,
+		CompactPctOverride: os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"),
+		Exceeds200kTokens:  data.Exceeds200kTokens,
+		Usage:              remote.usage,
+		SubscriptionType:   cred.ClaudeAiOauth.SubscriptionType,
+		Status:             remote.status,
+		Update:             remote.update,
+		ShowCwd:            cfg.showCwd,
+		Cwd:                data.Cwd,
+		CwdMaxLen:          cfg.cwdMaxLen,
+		ShowBranch:         cfg.showGitBranch,
+		BranchMaxLen:       cfg.gitBranchMaxLen,
+	})
 
-	// Context bar.
-	contextPct := 0
-	if data.ContextWindow.UsedPercentage != nil {
-		contextPct = int(math.Round(*data.ContextWindow.UsedPercentage))
-	}
-	compactPct := 85
-	if v, err := strconv.Atoi(os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE")); err == nil && v > 0 && v <= 100 {
-		compactPct = v
-	}
-	warnPct := compactPct - 5
-	contextBar := render.Bar(contextPct, render.ContextColorFunc(warnPct))
-	if contextPct >= warnPct {
-		contextBar += " ⚠️"
-	}
-	if data.Exceeds200kTokens {
-		contextBar += " 🥵"
-	}
-
-	// Usage bars.
-	var usage5h, usage7d, usageExtra string
-	if remote.usage != nil {
-		now := time.Now()
-		// 5-hour bar (null on enterprise).
-		if remote.usage.FiveHour != nil {
-			pct5 := int(math.Round(remote.usage.FiveHour.Utilization))
-			usage5h = render.Bar(pct5, render.QuotaColor)
-			if reset := render.ResetTime(remote.usage.FiveHour.ResetsAt, now); reset != "" {
-				usage5h += " (" + reset + ")"
-			}
-			if policy.IsPeakHours(now, cred.ClaudeAiOauth.SubscriptionType) {
-				usage5h = "⚡️" + usage5h
-			}
-		}
-
-		// 7-day bar, plus per-model sub-bars (null on enterprise).
-		if remote.usage.SevenDay != nil {
-			pct7 := int(math.Round(remote.usage.SevenDay.Utilization))
-			usage7d = render.Bar(pct7, render.QuotaColor)
-			if reset := render.ResetTime(remote.usage.SevenDay.ResetsAt, now); reset != "" {
-				usage7d += " (" + reset + ")"
-			}
-			subSep := render.Dim + " · " + render.Reset
-			for _, model := range []struct {
-				q     *usage.QuotaLimit
-				label string
-			}{
-				{remote.usage.SevenDaySonnet, "sonnet"},
-				{remote.usage.SevenDayOpus, "opus"},
-				{remote.usage.SevenDayCowork, "cowork"},
-				{remote.usage.SevenDayOAuthApp, "oauth"},
-			} {
-				if model.q != nil {
-					pct := int(math.Round(model.q.Utilization))
-					usage7d += subSep + render.QuotaSubBar(
-						pct, model.label, render.ResetTime(model.q.ResetsAt, now),
-					)
-				}
-			}
-		}
-
-		// Extra usage.
-		if e := remote.usage.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
-			usageExtra = render.ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
-		}
-	}
-
-	// Service status.
-	var statusStr string
-	if remote.status != nil {
-		statusStr = render.StatusIndicator(remote.status.Status.Indicator)
-	}
-
-	// Update indicator.
-	var updateStr string
-	if remote.update != nil {
-		updateStr = render.UpdateIndicator(remote.update.TagName)
-	}
-
-	// Working directory and git branch.
-	var cwdStr, branchStr string
-	if cfg.showCwd {
-		if name := cwdName(data.Cwd, cfg.cwdMaxLen); name != "" {
-			cwdStr = render.Yellow + name + render.Reset
-		}
-	}
-	if cfg.showGitBranch {
-		if branch := compactName(getBranch(), cfg.gitBranchMaxLen); branch != "" {
-			branchStr = render.Magenta + branch + render.Reset
-		}
-	}
-
-	// Combine identity with optional segments.
-	sep := render.Dim + " │ " + render.Reset
-	identityFull := identity
-	if cwdStr != "" {
-		identityFull += sep + cwdStr
-	}
-	if branchStr != "" {
-		identityFull += sep + branchStr
-	}
-
-	output := render.Output(identityFull, contextBar, usage5h, usage7d, usageExtra, statusStr, updateStr)
-	// Leading reset clears stale ANSI state from previous renders.
-	// Non-breaking spaces prevent the terminal from collapsing whitespace.
-	output = render.Reset + strings.ReplaceAll(output, " ", "\u00A0")
 	_, err = fmt.Fprintln(os.Stdout, output)
 	return err
 }
@@ -265,37 +167,13 @@ func readStdin(cfg config) (stdin.Data, error) {
 		return stdin.Data{}, fmt.Errorf("read stdin: %w", err)
 	}
 	if cfg.debug {
-		_ = os.WriteFile(stdinFilePath(), input, 0o600)
+		_ = os.WriteFile(paths.MustCacheFile(configDir, "stdin.json"), input, 0o600)
 	}
 	data, err := stdin.Parse(input)
 	if err != nil {
 		return stdin.Data{}, fmt.Errorf("parse stdin: %w", err)
 	}
 	return data, nil
-}
-
-// resolveCredentials determines the subscription type and credentials from
-// environment variables and local credential stores. API providers (Bedrock,
-// Vertex, Foundry, API key) skip credential resolution entirely.
-func resolveCredentials(ctx context.Context, cfg config) (creds.Credentials, string, bool) {
-	if cfg.usageFile != "" && cfg.statusFile != "" {
-		return creds.Credentials{}, "Debug", false
-	}
-	sub := creds.Provider()
-	if sub != "" {
-		return creds.Credentials{}, sub, true
-	}
-	cred, err := creds.Read(ctx, os.Getenv("CLAUDE_CONFIG_DIR"), keychainServiceName())
-	if err != nil {
-		log.Printf("credentials: %v", err)
-		return creds.Credentials{}, creds.ProviderAPI, false
-	}
-	sub = creds.SubscriptionType(cred.ClaudeAiOauth.SubscriptionType)
-	if sub == "" {
-		log.Printf("unknown subscription type: subscription_type=%q", cred.ClaudeAiOauth.SubscriptionType)
-		sub = "Unknown subscription type"
-	}
-	return cred, sub, false
 }
 
 // remoteData holds responses from concurrent API calls.
@@ -325,7 +203,15 @@ func fetchRemoteData(
 			}
 			rd.usage = resp
 		} else {
-			fetchUsage(ctx, cred, sub, &wg, &rd.usage)
+			usage.FetchAsync(
+				ctx,
+				cred.ClaudeAiOauth.AccessToken,
+				cred.ClaudeAiOauth.SubscriptionType,
+				sub,
+				paths.MustCacheFile(configDir, "usage.json"),
+				&wg,
+				&rd.usage,
+			)
 		}
 	}
 
@@ -337,7 +223,7 @@ func fetchRemoteData(
 			}
 			rd.status = resp
 		} else {
-			fetchStatus(ctx, &wg, &rd.status)
+			status.FetchAsync(ctx, paths.MustCacheFile(configDir, "status.json"), &wg, &rd.status)
 		}
 	}
 
@@ -348,152 +234,9 @@ func fetchRemoteData(
 		}
 		rd.update = resp
 	} else {
-		fetchUpdate(ctx, &wg, &rd.update)
+		update.FetchAsync(ctx, currentVersion(), paths.MustCacheFile(configDir, "update.json"), &wg, &rd.update)
 	}
 
 	wg.Wait()
 	return rd
-}
-
-// fetchUsage fetches usage data from the API in a goroutine.
-func fetchUsage(
-	ctx context.Context,
-	cred creds.Credentials,
-	sub string,
-	wg *sync.WaitGroup,
-	out **usage.Response,
-) {
-	token := cred.ClaudeAiOauth.AccessToken
-	subType := cred.ClaudeAiOauth.SubscriptionType
-	wg.Go(func() {
-		switch {
-		case token == "":
-			log.Printf("usage: no access token found")
-		case sub == "":
-			log.Printf(
-				"usage: unknown subscription type %q, expected pro/max/team/enterprise",
-				subType,
-			)
-		default:
-			resp, err := usage.Fetch(ctx, token, cacheFilePath())
-			if err != nil && !errors.Is(err, usage.ErrCachedRateLimited) &&
-				!errors.Is(err, usage.ErrCachedFailure) {
-				log.Printf("usage: %v", err)
-			}
-			*out = resp
-		}
-	})
-}
-
-// fetchStatus fetches service status from the Atlassian Statuspage API in a goroutine.
-func fetchStatus(ctx context.Context, wg *sync.WaitGroup, out **status.Response) {
-	wg.Go(func() {
-		resp, err := status.Fetch(ctx, statusCacheFilePath())
-		if err != nil {
-			log.Printf("status: %v", err)
-		}
-		*out = resp
-	})
-}
-
-// fetchUpdate checks for a newer claudeline release from the GitHub API in a goroutine.
-func fetchUpdate(ctx context.Context, wg *sync.WaitGroup, out **update.Response) {
-	wg.Go(func() {
-		resp, err := update.Fetch(ctx, currentVersion(), updateCacheFilePath())
-		if err != nil {
-			log.Printf("update: %v", err)
-		}
-		*out = resp
-	})
-}
-
-// keychainServiceName returns the macOS Keychain service name used by Claude Code.
-// When CLAUDE_CONFIG_DIR is set, Claude Code appends a hash suffix to the service name.
-func keychainServiceName() string {
-	return "Claude Code-credentials" + configDirSuffix()
-}
-
-// cacheDir returns the directory for claudeline cache and log files.
-// Uses /tmp/claudeline on Unix and os.TempDir()/claudeline on Windows.
-func cacheDir() string {
-	base := "/tmp"
-	if runtime.GOOS == "windows" {
-		base = os.TempDir()
-	}
-	return filepath.Join(base, "claudeline")
-}
-
-// configDirSuffix returns a hash-based suffix when CLAUDE_CONFIG_DIR is set,
-// or an empty string when it is unset. This avoids collisions between profiles.
-func configDirSuffix() string {
-	configDir := os.Getenv("CLAUDE_CONFIG_DIR")
-	if configDir == "" {
-		return ""
-	}
-	h := sha256.Sum256([]byte(configDir))
-	return fmt.Sprintf("-%x", h[:4])
-}
-
-// debugLogFilePath returns the file path for the debug log.
-// When CLAUDE_CONFIG_DIR is set, a hash suffix is appended to avoid collisions between profiles.
-func debugLogFilePath() string {
-	return filepath.Join(cacheDir(), "debug"+configDirSuffix()+".log")
-}
-
-// cacheFilePath returns the file path for the usage cache.
-// When CLAUDE_CONFIG_DIR is set, a hash suffix is appended to avoid collisions between profiles.
-func cacheFilePath() string {
-	return filepath.Join(cacheDir(), "usage"+configDirSuffix()+".json")
-}
-
-// statusCacheFilePath returns the file path for the status cache.
-func statusCacheFilePath() string {
-	return filepath.Join(cacheDir(), "status"+configDirSuffix()+".json")
-}
-
-// updateCacheFilePath returns the file path for the update check cache.
-func updateCacheFilePath() string {
-	return filepath.Join(cacheDir(), "update"+configDirSuffix()+".json")
-}
-
-// stdinFilePath returns the file path for the latest stdin payload snapshot.
-func stdinFilePath() string {
-	return filepath.Join(cacheDir(), "stdin"+configDirSuffix()+".json")
-}
-
-// getBranch returns the current git branch name, or "" if not in a git repo.
-func getBranch() string {
-	data, err := os.ReadFile(".git/HEAD")
-	if err != nil {
-		return ""
-	}
-	s := strings.TrimSpace(string(data))
-	if after, ok := strings.CutPrefix(s, "ref: refs/heads/"); ok {
-		return after
-	}
-	return "" // detached HEAD or bare repo
-}
-
-// cwdName extracts the last path segment from cwd as the folder name.
-func cwdName(cwd string, maxLen int) string {
-	// Normalize separators for cross-platform support.
-	name := filepath.Base(strings.ReplaceAll(cwd, `\`, "/"))
-	switch {
-	case name == "." || name == "/" || name == `\`:
-		return ""
-	case len(name) == 2 && name[1] == ':':
-		// Bare Windows drive letter (e.g. "C:") — root of a drive.
-		return ""
-	}
-	return compactName(name, maxLen)
-}
-
-// compactName truncates a name to maxLen runes using a Unicode ellipsis.
-func compactName(name string, maxLen int) string {
-	runes := []rune(name)
-	if len(runes) <= maxLen {
-		return name
-	}
-	half := (maxLen - 1) / 2
-	return string(runes[:half]) + "…" + string(runes[len(runes)-(maxLen-1-half):])
 }
