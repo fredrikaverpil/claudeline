@@ -147,6 +147,7 @@ func run(cfg config) error {
 		CompactPctOverride: os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"),
 		Exceeds200kTokens:  data.Exceeds200kTokens,
 		Usage:              remote.usage,
+		StdinRateLimits:    data.RateLimits,
 		SubscriptionType:   cred.ClaudeAiOauth.SubscriptionType,
 		Status:             remote.status,
 		Update:             remote.update,

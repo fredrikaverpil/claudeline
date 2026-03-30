@@ -218,6 +218,35 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
+			name: "rate_limits parsed",
+			input: `{"cwd":"/tmp","model":{"display_name":"Opus"},"context_window":{},` +
+				`"rate_limits":{"five_hour":{"used_percentage":59,"resets_at":1774656000},` +
+				`"seven_day":{"used_percentage":58,"resets_at":1774771200}}}`,
+			want: Data{
+				Cwd: "/tmp",
+				Model: struct {
+					DisplayName string `json:"display_name"`
+				}{DisplayName: "Opus"},
+				RateLimits: &struct {
+					FiveHour *RateLimit `json:"five_hour"`
+					SevenDay *RateLimit `json:"seven_day"`
+				}{
+					FiveHour: &RateLimit{UsedPercentage: new(59.0), ResetsAt: new(1774656000.0)},
+					SevenDay: &RateLimit{UsedPercentage: new(58.0), ResetsAt: new(1774771200.0)},
+				},
+			},
+		},
+		{
+			name:  "rate_limits null",
+			input: `{"cwd":"/tmp","model":{"display_name":"Opus"},"context_window":{},"rate_limits":null}`,
+			want: Data{
+				Cwd: "/tmp",
+				Model: struct {
+					DisplayName string `json:"display_name"`
+				}{DisplayName: "Opus"},
+			},
+		},
+		{
 			name:    "invalid JSON",
 			input:   `{not json}`,
 			wantErr: true,
@@ -268,8 +297,65 @@ func TestParse(t *testing.T) {
 			if got.Exceeds200kTokens != tt.want.Exceeds200kTokens {
 				t.Errorf("Exceeds200kTokens = %v, want %v", got.Exceeds200kTokens, tt.want.Exceeds200kTokens)
 			}
+			assertRateLimits(t, got.RateLimits, tt.want.RateLimits)
 		})
 	}
+}
+
+func assertRateLimit(t *testing.T, prefix string, got, want *RateLimit) {
+	t.Helper()
+	if want == nil {
+		if got != nil {
+			t.Errorf("%s: got non-nil, want nil", prefix)
+		}
+		return
+	}
+	if got == nil {
+		t.Fatalf("%s: got nil, want non-nil", prefix)
+	}
+	if want.UsedPercentage == nil {
+		if got.UsedPercentage != nil {
+			t.Errorf("%s.UsedPercentage = %v, want nil", prefix, *got.UsedPercentage)
+		}
+	} else {
+		if got.UsedPercentage == nil {
+			t.Fatalf("%s.UsedPercentage is nil, want %v", prefix, *want.UsedPercentage)
+		}
+		if *got.UsedPercentage != *want.UsedPercentage {
+			t.Errorf("%s.UsedPercentage = %v, want %v", prefix, *got.UsedPercentage, *want.UsedPercentage)
+		}
+	}
+	if want.ResetsAt == nil {
+		if got.ResetsAt != nil {
+			t.Errorf("%s.ResetsAt = %v, want nil", prefix, *got.ResetsAt)
+		}
+	} else {
+		if got.ResetsAt == nil {
+			t.Fatalf("%s.ResetsAt is nil, want %v", prefix, *want.ResetsAt)
+		}
+		if *got.ResetsAt != *want.ResetsAt {
+			t.Errorf("%s.ResetsAt = %v, want %v", prefix, *got.ResetsAt, *want.ResetsAt)
+		}
+	}
+}
+
+func assertRateLimits(t *testing.T, got, want *struct {
+	FiveHour *RateLimit `json:"five_hour"`
+	SevenDay *RateLimit `json:"seven_day"`
+},
+) {
+	t.Helper()
+	if want == nil {
+		if got != nil {
+			t.Errorf("RateLimits: got non-nil, want nil")
+		}
+		return
+	}
+	if got == nil {
+		t.Fatalf("RateLimits: got nil, want non-nil")
+	}
+	assertRateLimit(t, "RateLimits.FiveHour", got.FiveHour, want.FiveHour)
+	assertRateLimit(t, "RateLimits.SevenDay", got.SevenDay, want.SevenDay)
 }
 
 func TestPayloadSchema(t *testing.T) {

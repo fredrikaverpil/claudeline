@@ -482,6 +482,38 @@ func TestResetTime_invalid(t *testing.T) {
 	}
 }
 
+func TestResetTimeUnix(t *testing.T) {
+	t.Parallel()
+
+	// Use local time to match ResetTimeUnix's .Local() conversion.
+	now := time.Date(2026, 3, 9, 10, 0, 0, 0, time.Local)
+
+	sameDayTS := float64(now.Add(time.Hour).Unix())
+	diffDayTS := float64(now.Add(48 * time.Hour).Unix())
+	wantSameDay := now.Add(time.Hour).Format("15:04")
+	wantDiffDay := now.Add(48 * time.Hour).Format("Mon 15:04")
+
+	tests := []struct {
+		name string
+		ts   *float64
+		want string
+	}{
+		{name: "nil timestamp", ts: nil, want: ""},
+		{name: "same day", ts: &sameDayTS, want: wantSameDay},
+		{name: "different day", ts: &diffDayTS, want: wantDiffDay},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := ResetTimeUnix(tt.ts, now)
+			if got != tt.want {
+				t.Errorf("ResetTimeUnix() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCompactName(t *testing.T) {
 	t.Parallel()
 

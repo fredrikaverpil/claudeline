@@ -10,6 +10,7 @@ import (
 
 	"github.com/fredrikaverpil/claudeline/internal/policy"
 	"github.com/fredrikaverpil/claudeline/internal/status"
+	"github.com/fredrikaverpil/claudeline/internal/stdin"
 	"github.com/fredrikaverpil/claudeline/internal/update"
 	"github.com/fredrikaverpil/claudeline/internal/usage"
 )
@@ -38,15 +39,19 @@ type Params struct {
 	CompactPctOverride string   // raw CLAUDE_AUTOCOMPACT_PCT_OVERRIDE value
 	Exceeds200kTokens  bool
 	Usage              *usage.Response
-	SubscriptionType   string // raw subscription type for peak hours check
-	Status             *status.Response
-	Update             *update.Response
-	ShowCwd            bool
-	Cwd                string // raw working directory path
-	CwdMaxLen          int
-	ShowBranch         bool
-	Branch             string // current git branch name
-	BranchMaxLen       int
+	StdinRateLimits    *struct {
+		FiveHour *stdin.RateLimit `json:"five_hour"`
+		SevenDay *stdin.RateLimit `json:"seven_day"`
+	}
+	SubscriptionType string // raw subscription type for peak hours check
+	Status           *status.Response
+	Update           *update.Response
+	ShowCwd          bool
+	Cwd              string // raw working directory path
+	CwdMaxLen        int
+	ShowBranch       bool
+	Branch           string // current git branch name
+	BranchMaxLen     int
 }
 
 // Build assembles the complete statusline string from all collected data.
@@ -73,11 +78,38 @@ func Build(p Params) string {
 	}
 
 	// Usage bars.
+	// Aggregate 5h/7d bars come from stdin rate_limits (instant, no network).
+	// Per-model sub-bars and extra usage come from the usage API (when available).
 	var usage5h, usage7d, usageExtra string
+	now := time.Now()
+
+	// 5-hour bar from stdin.
+	if p.StdinRateLimits != nil && p.StdinRateLimits.FiveHour != nil &&
+		p.StdinRateLimits.FiveHour.UsedPercentage != nil {
+		pct5 := int(math.Round(*p.StdinRateLimits.FiveHour.UsedPercentage))
+		usage5h = Bar(pct5, QuotaColor)
+		if reset := ResetTimeUnix(p.StdinRateLimits.FiveHour.ResetsAt, now); reset != "" {
+			usage5h += " (" + reset + ")"
+		}
+		if policy.IsPeakHours(now, p.SubscriptionType) {
+			usage5h = "⚡️" + usage5h
+		}
+	}
+
+	// 7-day bar from stdin.
+	if p.StdinRateLimits != nil && p.StdinRateLimits.SevenDay != nil &&
+		p.StdinRateLimits.SevenDay.UsedPercentage != nil {
+		pct7 := int(math.Round(*p.StdinRateLimits.SevenDay.UsedPercentage))
+		usage7d = Bar(pct7, QuotaColor)
+		if reset := ResetTimeUnix(p.StdinRateLimits.SevenDay.ResetsAt, now); reset != "" {
+			usage7d += " (" + reset + ")"
+		}
+	}
+
+	// Usage API: fall back for aggregate bars when stdin doesn't provide them,
+	// plus per-model sub-bars and extra usage.
 	if p.Usage != nil {
-		now := time.Now()
-		// 5-hour bar (null on enterprise).
-		if p.Usage.FiveHour != nil {
+		if usage5h == "" && p.Usage.FiveHour != nil {
 			pct5 := int(math.Round(p.Usage.FiveHour.Utilization))
 			usage5h = Bar(pct5, QuotaColor)
 			if reset := ResetTime(p.Usage.FiveHour.ResetsAt, now); reset != "" {
@@ -87,34 +119,36 @@ func Build(p Params) string {
 				usage5h = "⚡️" + usage5h
 			}
 		}
-
-		// 7-day bar, plus per-model sub-bars (null on enterprise).
-		if p.Usage.SevenDay != nil {
+		if usage7d == "" && p.Usage.SevenDay != nil {
 			pct7 := int(math.Round(p.Usage.SevenDay.Utilization))
 			usage7d = Bar(pct7, QuotaColor)
 			if reset := ResetTime(p.Usage.SevenDay.ResetsAt, now); reset != "" {
 				usage7d += " (" + reset + ")"
 			}
-			subSep := Dim + " · " + Reset
-			for _, model := range []struct {
-				q     *usage.QuotaLimit
-				label string
-			}{
-				{p.Usage.SevenDaySonnet, "sonnet"},
-				{p.Usage.SevenDayOpus, "opus"},
-				{p.Usage.SevenDayCowork, "cowork"},
-				{p.Usage.SevenDayOAuthApp, "oauth"},
-			} {
-				if model.q != nil {
-					pct := int(math.Round(model.q.Utilization))
-					usage7d += subSep + QuotaSubBar(
-						pct, model.label, ResetTime(model.q.ResetsAt, now),
-					)
-				}
+		}
+
+		// Sub-bars for 7d usage limits.
+		subSep := Dim + " · " + Reset
+		if usage7d == "" {
+			subSep = " " + Reset
+		}
+		for _, model := range []struct {
+			q     *usage.QuotaLimit
+			label string
+		}{
+			{p.Usage.SevenDaySonnet, "sonnet"},
+			{p.Usage.SevenDayOpus, "opus"},
+			{p.Usage.SevenDayCowork, "cowork"},
+			{p.Usage.SevenDayOAuthApp, "oauth"},
+		} {
+			if model.q != nil {
+				pct := int(math.Round(model.q.Utilization))
+				usage7d += subSep + QuotaSubBar(
+					pct, model.label, ResetTime(model.q.ResetsAt, now),
+				)
 			}
 		}
 
-		// Extra usage.
 		if e := p.Usage.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
 			usageExtra = ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
 		}
@@ -254,6 +288,21 @@ func ResetTime(iso string, now time.Time) string {
 		return ""
 	}
 	local := target.Local()
+	y1, m1, d1 := now.Local().Date()
+	y2, m2, d2 := local.Date()
+	if y1 == y2 && m1 == m2 && d1 == d2 {
+		return local.Format("15:04")
+	}
+	return local.Format("Mon 15:04")
+}
+
+// ResetTimeUnix formats a Unix timestamp reset time, showing just the time if
+// it's today, or the day and time if it's a different day. Returns "" when ts is nil.
+func ResetTimeUnix(ts *float64, now time.Time) string {
+	if ts == nil {
+		return ""
+	}
+	local := time.Unix(int64(*ts), 0).Local()
 	y1, m1, d1 := now.Local().Date()
 	y2, m2, d2 := local.Date()
 	if y1 == y2 && m1 == m2 && d1 == d2 {
