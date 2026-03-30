@@ -76,6 +76,7 @@ with no external dependencies (stdlib only).
 | `-cwd-max-len`        | `30`    | Max display length for working directory name        |
 | `-git-branch`         | `false` | Show git branch in the status line                   |
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
+| `-usage-api`          | `false` | Fetch usage from API instead of stdin rate_limits    |
 | `-usage-file`         |         | Read usage data from file instead of API             |
 | `-status-file`        |         | Read status data from file instead of API            |
 | `-update-file`        |         | Read update data from file instead of API            |
@@ -96,9 +97,13 @@ Example with working directory and git branch enabled:
 
 Single-binary design with `main.go` orchestrating `internal/` packages.
 
-**Data flow:** stdin JSON → parse input + read credentials → fetch usage
-(cached) + fetch status (cached) + check update (cached) → render ANSI output →
-stdout
+**Data flow:** stdin JSON → parse input + read credentials → fetch status
+(cached) + check update (cached) → render ANSI output → stdout
+
+By default, quota bars use `rate_limits` from stdin (available since Claude Code
+v2.1.80). Pass `-usage-api` to fetch detailed usage from the Anthropic API
+instead (enables per-model sub-bars, extra usage costs, and peak hours
+indicator).
 
 Key components:
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/fredrikaverpil/claudeline/internal/policy"
 	"github.com/fredrikaverpil/claudeline/internal/status"
+	"github.com/fredrikaverpil/claudeline/internal/stdin"
 	"github.com/fredrikaverpil/claudeline/internal/update"
 	"github.com/fredrikaverpil/claudeline/internal/usage"
 )
@@ -38,15 +39,19 @@ type Params struct {
 	CompactPctOverride string   // raw CLAUDE_AUTOCOMPACT_PCT_OVERRIDE value
 	Exceeds200kTokens  bool
 	Usage              *usage.Response
-	SubscriptionType   string // raw subscription type for peak hours check
-	Status             *status.Response
-	Update             *update.Response
-	ShowCwd            bool
-	Cwd                string // raw working directory path
-	CwdMaxLen          int
-	ShowBranch         bool
-	Branch             string // current git branch name
-	BranchMaxLen       int
+	StdinRateLimits    *struct {
+		FiveHour *stdin.RateLimit `json:"five_hour"`
+		SevenDay *stdin.RateLimit `json:"seven_day"`
+	}
+	SubscriptionType string // raw subscription type for peak hours check
+	Status           *status.Response
+	Update           *update.Response
+	ShowCwd          bool
+	Cwd              string // raw working directory path
+	CwdMaxLen        int
+	ShowBranch       bool
+	Branch           string // current git branch name
+	BranchMaxLen     int
 }
 
 // Build assembles the complete statusline string from all collected data.
@@ -75,6 +80,7 @@ func Build(p Params) string {
 	// Usage bars.
 	var usage5h, usage7d, usageExtra string
 	if p.Usage != nil {
+		// Full API response available — render with sub-bars, extra usage, peak hours.
 		now := time.Now()
 		// 5-hour bar (null on enterprise).
 		if p.Usage.FiveHour != nil {
@@ -117,6 +123,23 @@ func Build(p Params) string {
 		// Extra usage.
 		if e := p.Usage.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
 			usageExtra = ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
+		}
+	} else if p.StdinRateLimits != nil {
+		// Stdin rate_limits — aggregate bars only (no sub-bars, extra usage, or peak hours).
+		now := time.Now()
+		if p.StdinRateLimits.FiveHour != nil && p.StdinRateLimits.FiveHour.UsedPercentage != nil {
+			pct5 := int(math.Round(*p.StdinRateLimits.FiveHour.UsedPercentage))
+			usage5h = Bar(pct5, QuotaColor)
+			if reset := ResetTimeUnix(p.StdinRateLimits.FiveHour.ResetsAt, now); reset != "" {
+				usage5h += " (" + reset + ")"
+			}
+		}
+		if p.StdinRateLimits.SevenDay != nil && p.StdinRateLimits.SevenDay.UsedPercentage != nil {
+			pct7 := int(math.Round(*p.StdinRateLimits.SevenDay.UsedPercentage))
+			usage7d = Bar(pct7, QuotaColor)
+			if reset := ResetTimeUnix(p.StdinRateLimits.SevenDay.ResetsAt, now); reset != "" {
+				usage7d += " (" + reset + ")"
+			}
 		}
 	}
 
@@ -254,6 +277,21 @@ func ResetTime(iso string, now time.Time) string {
 		return ""
 	}
 	local := target.Local()
+	y1, m1, d1 := now.Local().Date()
+	y2, m2, d2 := local.Date()
+	if y1 == y2 && m1 == m2 && d1 == d2 {
+		return local.Format("15:04")
+	}
+	return local.Format("Mon 15:04")
+}
+
+// ResetTimeUnix formats a Unix timestamp reset time, showing just the time if
+// it's today, or the day and time if it's a different day. Returns "" when ts is nil.
+func ResetTimeUnix(ts *float64, now time.Time) string {
+	if ts == nil {
+		return ""
+	}
+	local := time.Unix(int64(*ts), 0).Local()
 	y1, m1, d1 := now.Local().Date()
 	y2, m2, d2 := local.Date()
 	if y1 == y2 && m1 == m2 && d1 == d2 {
