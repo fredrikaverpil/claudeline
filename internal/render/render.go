@@ -84,7 +84,8 @@ func Build(p Params) string {
 	now := time.Now()
 
 	// 5-hour bar from stdin.
-	if p.StdinRateLimits != nil && p.StdinRateLimits.FiveHour != nil && p.StdinRateLimits.FiveHour.UsedPercentage != nil {
+	if p.StdinRateLimits != nil && p.StdinRateLimits.FiveHour != nil &&
+		p.StdinRateLimits.FiveHour.UsedPercentage != nil {
 		pct5 := int(math.Round(*p.StdinRateLimits.FiveHour.UsedPercentage))
 		usage5h = Bar(pct5, QuotaColor)
 		if reset := ResetTimeUnix(p.StdinRateLimits.FiveHour.ResetsAt, now); reset != "" {
@@ -96,7 +97,8 @@ func Build(p Params) string {
 	}
 
 	// 7-day bar from stdin.
-	if p.StdinRateLimits != nil && p.StdinRateLimits.SevenDay != nil && p.StdinRateLimits.SevenDay.UsedPercentage != nil {
+	if p.StdinRateLimits != nil && p.StdinRateLimits.SevenDay != nil &&
+		p.StdinRateLimits.SevenDay.UsedPercentage != nil {
 		pct7 := int(math.Round(*p.StdinRateLimits.SevenDay.UsedPercentage))
 		usage7d = Bar(pct7, QuotaColor)
 		if reset := ResetTimeUnix(p.StdinRateLimits.SevenDay.ResetsAt, now); reset != "" {
@@ -104,8 +106,27 @@ func Build(p Params) string {
 		}
 	}
 
-	// Per-model sub-bars and extra usage from the usage API.
+	// Usage API: fall back for aggregate bars when stdin doesn't provide them,
+	// plus per-model sub-bars and extra usage.
 	if p.Usage != nil {
+		if usage5h == "" && p.Usage.FiveHour != nil {
+			pct5 := int(math.Round(p.Usage.FiveHour.Utilization))
+			usage5h = Bar(pct5, QuotaColor)
+			if reset := ResetTime(p.Usage.FiveHour.ResetsAt, now); reset != "" {
+				usage5h += " (" + reset + ")"
+			}
+			if policy.IsPeakHours(now, p.SubscriptionType) {
+				usage5h = "⚡️" + usage5h
+			}
+		}
+		if usage7d == "" && p.Usage.SevenDay != nil {
+			pct7 := int(math.Round(p.Usage.SevenDay.Utilization))
+			usage7d = Bar(pct7, QuotaColor)
+			if reset := ResetTime(p.Usage.SevenDay.ResetsAt, now); reset != "" {
+				usage7d += " (" + reset + ")"
+			}
+		}
+
 		subSep := Dim + " · " + Reset
 		for _, model := range []struct {
 			q     *usage.QuotaLimit
