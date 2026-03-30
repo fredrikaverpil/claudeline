@@ -100,19 +100,14 @@ Single-binary design with `main.go` orchestrating `internal/` packages.
 (cached) + fetch status (cached) + check update (cached) → render ANSI output →
 stdout
 
-Aggregate 5-hour and 7-day quota bars use `rate_limits` from stdin (available
-since Claude Code v2.1.80) for instant, zero-latency display. Per-model sub-bars
-and extra usage costs are fetched from the Anthropic usage API in the background
-and appended when available.
-
 Key components:
 
 - **Credential resolution:** Detects API provider from environment variables
   first (`CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`,
   `CLAUDE_CODE_USE_FOUNDRY`, `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`),
-  displaying "Bedrock", "Vertex", "Foundry", or "API" instead of the
-  plan name. When no provider is detected, reads OAuth credentials from macOS
-  Keychain (`security find-generic-password`), falling back to
+  displaying "Bedrock", "Vertex", "Foundry", or "API" instead of the plan name.
+  When no provider is detected, reads OAuth credentials from macOS Keychain
+  (`security find-generic-password`), falling back to
   `~/.claude/.credentials.json`. Works on any platform via the file fallback.
   Failure is non-fatal (usage bars are omitted).
 - **Usage API:** `GET https://api.anthropic.com/api/oauth/usage` with OAuth
