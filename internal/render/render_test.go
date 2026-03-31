@@ -294,7 +294,12 @@ func TestUpdateIndicator(t *testing.T) {
 		want string
 	}{
 		{name: "empty", tag: "", want: ""},
-		{name: "version tag", tag: "v0.14.0", want: Green + "↑" + Reset},
+		{
+			name: "version tag",
+			tag:  "v0.14.0",
+			want: "\033]8;;https://github.com/fredrikaverpil/claudeline/releases/tag/v0.14.0\a" +
+				Green + "↑" + Reset + "\033]8;;\a",
+		},
 	}
 
 	for _, tt := range tests {

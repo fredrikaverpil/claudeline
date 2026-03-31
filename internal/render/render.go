@@ -279,12 +279,15 @@ func Output(identity, contextBar, usage5h, usage7d, cost, usageExtra, statusIndi
 }
 
 // UpdateIndicator returns a green arrow when a newer version is available.
+// The arrow is an OSC 8 hyperlink to the GitHub release page.
 // Returns "" when tag is empty.
 func UpdateIndicator(tag string) string {
 	if tag == "" {
 		return ""
 	}
-	return Green + "↑" + Reset
+	url := "https://github.com/fredrikaverpil/claudeline/releases/tag/" + tag
+	// OSC 8 hyperlink: \033]8;;URL\a TEXT \033]8;;\a
+	return "\033]8;;" + url + "\a" + Green + "↑" + Reset + "\033]8;;\a"
 }
 
 // ResetTime formats a reset timestamp, showing just the time if it's
