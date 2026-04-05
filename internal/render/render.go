@@ -52,7 +52,6 @@ type Params struct {
 	ShowBranch       bool
 	Branch           string // current git branch name
 	BranchMaxLen     int
-	ShowCost         bool
 	CostUSD          float64
 }
 
@@ -183,7 +182,7 @@ func Build(p Params) string {
 	}
 
 	var costStr string
-	if p.ShowCost && p.CostUSD > 0 {
+	if p.CostUSD > 0 {
 		costStr = Cost(p.CostUSD)
 	}
 
@@ -336,6 +335,11 @@ func StatusIndicator(indicator string) string {
 	}
 }
 
+// Cost formats a USD cost value for display (e.g. "$1.23").
+func Cost(usd float64) string {
+	return fmt.Sprintf("$%.2f", usd)
+}
+
 // ExtraUsage returns the "$used/$limit" string for pay-as-you-go overage.
 // Returns "" when used is zero. Colors red when 80%+ of limit is used.
 func ExtraUsage(used, limit int) string {
@@ -347,11 +351,6 @@ func ExtraUsage(used, limit int) string {
 		return Red + s + Reset
 	}
 	return s
-}
-
-// Cost formats a USD cost value for display (e.g. "$1.23").
-func Cost(usd float64) string {
-	return Dim + fmt.Sprintf("$%.2f", usd) + Reset
 }
 
 // QuotaSubBar renders a per-model quota bar with a trailing label.

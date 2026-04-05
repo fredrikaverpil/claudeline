@@ -76,7 +76,6 @@ with no external dependencies (stdlib only).
 | `-cwd-max-len`        | `30`    | Max display length for working directory name        |
 | `-git-branch`         | `false` | Show git branch in the status line                   |
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
-| `-cost`               | `false` | Show session cost in the status line                 |
 | `-usage-file`         |         | Read usage data from file instead of API             |
 | `-status-file`        |         | Read status data from file instead of API            |
 | `-update-file`        |         | Read update data from file instead of API            |
