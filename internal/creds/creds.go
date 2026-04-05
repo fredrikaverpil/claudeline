@@ -114,29 +114,29 @@ func IsThirdPartyProvider(provider string) bool {
 	return thirdPartyProviders[provider]
 }
 
-// Resolve determines the subscription type and credentials from environment
+// Resolve determines the subscription/provider/API (login) type and credentials from environment
 // variables and local credential stores. API providers (Bedrock, Vertex,
 // Foundry, API key) skip credential resolution entirely. When debugMode is
-// true, the "Debug" plan is returned without any credential lookup.
+// true, the "Debug" is returned without any credential lookup.
 func Resolve(ctx context.Context, debugMode bool, configDir string) (Credentials, string, bool) {
 	if debugMode {
 		return Credentials{}, SubDebug, false
 	}
-	sub := Provider()
-	if sub != "" {
-		return Credentials{}, sub, true
+	loginType := Provider()
+	if loginType != "" {
+		return Credentials{}, loginType, true
 	}
 	cred, err := Read(ctx, configDir, KeychainServiceName(configDir))
 	if err != nil {
 		log.Printf("credentials: %v", err)
 		return Credentials{}, ProviderAPI, false
 	}
-	sub = SubscriptionType(cred.ClaudeAiOauth.SubscriptionType)
-	if sub == "" {
+	loginType = SubscriptionType(cred.ClaudeAiOauth.SubscriptionType)
+	if loginType == "" {
 		log.Printf("unknown subscription type: subscription_type=%q", cred.ClaudeAiOauth.SubscriptionType)
-		sub = SubUnknown
+		loginType = SubUnknown
 	}
-	return cred, sub, false
+	return cred, loginType, false
 }
 
 // KeychainServiceName returns the macOS Keychain service name used by Claude Code.

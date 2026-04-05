@@ -33,7 +33,7 @@ const barWidth = 5
 
 // Params holds all data needed to build the statusline.
 type Params struct {
-	Sub                string
+	LoginType          string
 	Model              string
 	ContextUsedPct     *float64 // nil when unavailable
 	CompactPctOverride string   // raw CLAUDE_AUTOCOMPACT_PCT_OVERRIDE value
@@ -59,7 +59,7 @@ type Params struct {
 // Build assembles the complete statusline string from all collected data.
 func Build(p Params) string {
 	// Identity.
-	identity := Identity(p.Model, p.Sub)
+	identity := Identity(p.LoginType, p.Model)
 
 	// Context bar.
 	contextPct := 0
@@ -240,11 +240,11 @@ func QuotaColor(pct int) string {
 	}
 }
 
-// Identity returns the "Plan | Model" segment.
-func Identity(model, plan string) string {
+// Identity returns the "Login Type | Model" segment.
+func Identity(loginType, model string) string {
 	switch {
-	case model != "" && plan != "":
-		return Cyan + plan + Reset + Dim + " │ " + Reset + Cyan + model + Reset
+	case model != "" && loginType != "":
+		return Cyan + loginType + Reset + Dim + " │ " + Reset + Cyan + model + Reset
 	case model != "":
 		return Cyan + model + Reset
 	default:

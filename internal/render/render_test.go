@@ -448,28 +448,28 @@ func TestIdentity(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		model, plan string
-		want        string
+		name             string
+		model, loginType string
+		want             string
 	}{
 		{
-			name:  "model and plan",
-			model: "Opus",
-			plan:  "Pro",
-			want:  Cyan + "Pro" + Reset + Dim + " │ " + Reset + Cyan + "Opus" + Reset,
+			name:      "login type and model",
+			model:     "Opus",
+			loginType: "Pro",
+			want:      Cyan + "Pro" + Reset + Dim + " │ " + Reset + Cyan + "Opus" + Reset,
 		},
-		{name: "model only", model: "Sonnet", plan: "", want: Cyan + "Sonnet" + Reset},
-		{name: "both empty", model: "", plan: "", want: ""},
-		{name: "plan only returns empty", model: "", plan: "Pro", want: ""},
+		{name: "model only", model: "Sonnet", loginType: "", want: Cyan + "Sonnet" + Reset},
+		{name: "both empty", model: "", loginType: "", want: ""},
+		{name: "plan only returns empty", model: "", loginType: "Pro", want: ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := Identity(tt.model, tt.plan)
+			got := Identity(tt.loginType, tt.model)
 			if got != tt.want {
-				t.Errorf("Identity(%q, %q) = %q, want %q", tt.model, tt.plan, got, tt.want)
+				t.Errorf("Identity(%q, %q) = %q, want %q", tt.loginType, tt.model, got, tt.want)
 			}
 		})
 	}

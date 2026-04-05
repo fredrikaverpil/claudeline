@@ -139,12 +139,11 @@ func run(cfg config) error {
 		return err
 	}
 	debugMode := cfg.usageFile != "" && cfg.statusFile != ""
-	cred, sub, isProvider := creds.Resolve(ctx, debugMode, configDir)
-
-	remote := fetchRemoteData(ctx, cfg, cred, sub, isProvider)
+	cred, loginType, isProvider := creds.Resolve(ctx, debugMode, configDir)
+	remote := fetchRemoteData(ctx, cfg, cred, loginType, isProvider)
 
 	output := render.Build(render.Params{
-		Sub:                sub,
+		LoginType:          loginType,
 		Model:              data.Model.DisplayName,
 		ContextUsedPct:     data.ContextWindow.UsedPercentage,
 		CompactPctOverride: os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"),
@@ -160,7 +159,7 @@ func run(cfg config) error {
 		ShowBranch:         cfg.showGitBranch,
 		Branch:             git.Branch(),
 		BranchMaxLen:       cfg.gitBranchMaxLen,
-		ShowCost:           cfg.showCost || sub == creds.ProviderAPI,
+		ShowCost:           cfg.showCost || loginType == creds.ProviderAPI,
 		CostUSD:            data.Cost.TotalCostUSD,
 	})
 
@@ -196,7 +195,7 @@ func fetchRemoteData(
 	ctx context.Context,
 	cfg config,
 	cred creds.Credentials,
-	sub string,
+	loginType string,
 	isProvider bool,
 ) remoteData {
 	var rd remoteData
@@ -219,7 +218,7 @@ func fetchRemoteData(
 		}
 	}
 
-	if !creds.IsThirdPartyProvider(sub) {
+	if !creds.IsThirdPartyProvider(loginType) {
 		if cfg.statusFile != "" {
 			resp, err := status.ReadResponse(cfg.statusFile)
 			if err != nil {

@@ -9,9 +9,9 @@ A minimalistic and opinionated
 
 <img width="930" height="112" alt="image" src="https://github.com/user-attachments/assets/8728028b-8cbb-4113-af88-3bbf4e6ab23b" />
 
-It displays the current Anthropic model, subscription plan, context window
-usage, and 5-hour/7-day quota usage as ANSI-colored progress bars. Written in Go
-with no external dependencies (stdlib only).
+It displays the subscription plan (or API/provider), current Anthropic model,
+context window usage, and 5-hour/7-day quota usage as ANSI-colored progress
+bars. Written in Go with no external dependencies (stdlib only).
 
 > [!NOTE]
 >
@@ -152,8 +152,8 @@ Key components:
   users; opt-in with `-cost` for all others. Claude Code calculates this for all
   users by multiplying token usage against
   [public API pricing](https://docs.anthropic.com/en/docs/about-claude/pricing).
-  For direct API key users this reflects actual spend; for subscription users and
-  cloud provider users (Bedrock, Vertex, Foundry) it is an estimate based on
+  For direct API key users this reflects actual spend; for subscription users
+  and cloud provider users (Bedrock, Vertex, Foundry) it is an estimate based on
   Anthropic's public API rates. The cost accumulates for the lifetime of the
   Claude Code process and resets when you quit and relaunch (not on `/clear` or
   `/new`).

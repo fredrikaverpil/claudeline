@@ -24,7 +24,7 @@ type credentials struct {
 		RateLimitTier    string   `json:"rateLimitTier"`
 	} `json:"claudeAiOauth"`
 	// McpOAuth is present only when MCP servers with OAuth are configured.
-	// It is not plan-specific — it may be absent in any testdata file.
+	// It is not subscription/provider/API specific. It may be absent in any testdata file.
 	McpOAuth map[string]struct {
 		ServerName     string `json:"serverName"`
 		ServerURL      string `json:"serverUrl"`
