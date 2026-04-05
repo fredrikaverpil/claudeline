@@ -146,6 +146,9 @@ Key components:
   `/tmp/claudeline/status.json` with 2min OK TTL, 30s fail TTL. Shows an orange
   fire icon with severity bars when there is a disruption: `🔥▂` (minor), `🔥▄▂`
   (major), `🔥▆▄▂` (critical). Hidden when all systems are operational.
+- **Session cost:** Displays the cumulative session cost as `$X.XX` from the
+  `cost.total_cost_usd` field in stdin JSON. Shown automatically when cost is
+  greater than zero (typically for API key users).
 - **Working directory:** Last path segment from `cwd` in stdin JSON, opt-in with
   `-cwd`.
 - **Git info:** Branch name read from `.git/HEAD` (no subprocess), opt-in with
