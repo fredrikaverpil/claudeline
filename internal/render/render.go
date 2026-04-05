@@ -52,6 +52,7 @@ type Params struct {
 	ShowBranch       bool
 	Branch           string // current git branch name
 	BranchMaxLen     int
+	ShowCost         bool
 	CostUSD          float64
 }
 
@@ -182,7 +183,7 @@ func Build(p Params) string {
 	}
 
 	var costStr string
-	if p.CostUSD > 0 {
+	if p.ShowCost && p.CostUSD > 0 {
 		costStr = Cost(p.CostUSD)
 	}
 

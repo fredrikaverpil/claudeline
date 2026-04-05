@@ -76,6 +76,7 @@ with no external dependencies (stdlib only).
 | `-cwd-max-len`        | `30`    | Max display length for working directory name        |
 | `-git-branch`         | `false` | Show git branch in the status line                   |
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
+| `-cost`               | `false` | Show estimated session cost in the status line       |
 | `-usage-file`         |         | Read usage data from file instead of API             |
 | `-status-file`        |         | Read status data from file instead of API            |
 | `-update-file`        |         | Read update data from file instead of API            |
@@ -146,9 +147,16 @@ Key components:
   `/tmp/claudeline/status.json` with 2min OK TTL, 30s fail TTL. Shows an orange
   fire icon with severity bars when there is a disruption: `🔥▂` (minor), `🔥▄▂`
   (major), `🔥▆▄▂` (critical). Hidden when all systems are operational.
-- **Session cost:** Displays the cumulative session cost as `$X.XX` from the
-  `cost.total_cost_usd` field in stdin JSON. Shown automatically when cost is
-  greater than zero (typically for API key users).
+- **Session cost:** Displays the session cost as `$X.XX` from the
+  `cost.total_cost_usd` field in stdin JSON. Always shown for direct API key
+  users; opt-in with `-cost` for all others. Claude Code calculates this for all
+  users by multiplying token usage against
+  [public API pricing](https://docs.anthropic.com/en/docs/about-claude/pricing).
+  For direct API key users this reflects actual spend; for subscription users and
+  cloud provider users (Bedrock, Vertex, Foundry) it is an estimate based on
+  Anthropic's public API rates. The cost accumulates for the lifetime of the
+  Claude Code process and resets when you quit and relaunch (not on `/clear` or
+  `/new`).
 - **Working directory:** Last path segment from `cwd` in stdin JSON, opt-in with
   `-cwd`.
 - **Git info:** Branch name read from `.git/HEAD` (no subprocess), opt-in with
