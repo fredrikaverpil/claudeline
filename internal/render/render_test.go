@@ -49,7 +49,7 @@ func TestRenderOutput(t *testing.T) {
 	identBranch := ident + sep + Magenta + "feat/foo" + Reset
 	identCwdBranch := ident + sep + Yellow + "myproject" + Reset + sep + Magenta + "feat/foo" + Reset
 
-	costStr := Dim + "$0.04" + Reset
+	costStr := "$0.04"
 
 	tests := []struct {
 		name            string
@@ -504,10 +504,10 @@ func TestCost(t *testing.T) {
 		usd  float64
 		want string
 	}{
-		{name: "zero", usd: 0, want: Dim + "$0.00" + Reset},
-		{name: "small", usd: 0.05, want: Dim + "$0.05" + Reset},
-		{name: "typical", usd: 1.23, want: Dim + "$1.23" + Reset},
-		{name: "large", usd: 42.5, want: Dim + "$42.50" + Reset},
+		{name: "zero", usd: 0, want: "$0.00"},
+		{name: "small", usd: 0.05, want: "$0.05"},
+		{name: "typical", usd: 1.23, want: "$1.23"},
+		{name: "large", usd: 42.5, want: "$42.50"},
 	}
 
 	for _, tt := range tests {
