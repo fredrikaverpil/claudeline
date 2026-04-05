@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0](https://github.com/fredrikaverpil/claudeline/compare/v0.18.0...v0.19.0) (2026-04-05)
+
+
+### Features
+
+* add cost (from stdin) ([#69](https://github.com/fredrikaverpil/claudeline/issues/69)) ([a658235](https://github.com/fredrikaverpil/claudeline/commit/a658235e56df472bfa79e4a0186146687d73927d))
+* require `-cost` flag to show session cost for non-API key users ([#91](https://github.com/fredrikaverpil/claudeline/issues/91)) ([4f21cbe](https://github.com/fredrikaverpil/claudeline/commit/4f21cbe955f38e8af461a4b5458711215b083f8d))
+
 ## [0.18.0](https://github.com/fredrikaverpil/claudeline/compare/v0.17.0...v0.18.0) (2026-03-30)
 
 
