@@ -165,7 +165,7 @@ func run(cfg config) error {
 		Cwd:                data.Cwd,
 		CwdMaxLen:          cfg.cwdMaxLen,
 		ShowBranch:         cfg.showGitBranch,
-		Branch:             git.Branch(),
+		Branch:             git.Branch(ctx, data.Cwd),
 		BranchMaxLen:       cfg.gitBranchMaxLen,
 		ShowCost:           cfg.showCost || loginType == creds.ProviderAPI,
 		CostUSD:            data.Cost.TotalCostUSD,
