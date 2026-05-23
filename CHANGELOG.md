@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.2](https://github.com/fredrikaverpil/claudeline/compare/v0.24.1...v0.24.2) (2026-05-23)
+
+
+### Bug Fixes
+
+* **ci:** update goreleaser archive config ([#123](https://github.com/fredrikaverpil/claudeline/issues/123)) ([cfa7fce](https://github.com/fredrikaverpil/claudeline/commit/cfa7fcee019c63eb2e515c1b2e33fe1ceb5abdd9))
+* sync plugin version with release-please ([#121](https://github.com/fredrikaverpil/claudeline/issues/121)) ([b62d680](https://github.com/fredrikaverpil/claudeline/commit/b62d680232a961d32ae0bc3d40f831b36632643b))
+
 ## [0.24.1](https://github.com/fredrikaverpil/claudeline/compare/v0.24.0...v0.24.1) (2026-05-23)
 
 
