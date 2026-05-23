@@ -6,6 +6,14 @@
 ### Bug Fixes
 
 * **git:** resolve branch from subdirectories and worktrees ([#118](https://github.com/fredrikaverpil/claudeline/issues/118)) ([86bd764](https://github.com/fredrikaverpil/claudeline/commit/86bd76449ad49aafa43f6004df841823c6a0f050)), closes [#117](https://github.com/fredrikaverpil/claudeline/issues/117)
+* sync plugin version with release-please ([#121](https://github.com/fredrikaverpil/claudeline/issues/121)) ([b62d680](https://github.com/fredrikaverpil/claudeline/commit/b62d680232a961d32ae0bc3d40f831b36632643b))
+
+## [0.24.1](https://github.com/fredrikaverpil/claudeline/compare/v0.24.0...v0.24.1) (2026-05-23)
+
+
+### Bug Fixes
+
+* **git:** resolve branch from subdirectories and worktrees ([#118](https://github.com/fredrikaverpil/claudeline/issues/118)) ([86bd764](https://github.com/fredrikaverpil/claudeline/commit/86bd76449ad49aafa43f6004df841823c6a0f050)), closes [#117](https://github.com/fredrikaverpil/claudeline/issues/117)
 
 ## [0.24.0](https://github.com/fredrikaverpil/claudeline/compare/v0.23.1...v0.24.0) (2026-05-07)
 
