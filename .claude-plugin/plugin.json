@@ -1,7 +1,7 @@
 {
   "name": "claudeline",
   "description": "A minimal, opinionated and non-configurable, Claude Code status line",
-  "version": "0.1.0",
+  "version": "0.24.1",
   "author": {
     "name": "Fredrik Averpil",
     "url": "https://github.com/fredrikaverpil"

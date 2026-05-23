@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "A minimal, opinionated and non-configurable, Claude Code status line",
-    "version": "0.1.0"
+    "version": "0.24.1"
   },
   "plugins": [
     {
@@ -14,7 +14,11 @@
       "source": "./",
       "description": "A minimal, opinionated and non-configurable, Claude Code status line",
       "category": "monitoring",
-      "tags": ["statusline", "monitoring", "usage"]
+      "tags": [
+        "statusline",
+        "monitoring",
+        "usage"
+      ]
     }
   ]
 }
