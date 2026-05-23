@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "A minimal, opinionated and non-configurable, Claude Code status line",
-    "version": "0.24.1"
+    "version": "0.24.2"
   },
   "plugins": [
     {
