@@ -5,6 +5,10 @@
     ".": {
       "extra-files": [
         {
+          "type": "generic",
+          "path": "package.nix"
+        },
+        {
           "type": "json",
           "path": ".claude-plugin/plugin.json",
           "jsonpath": "$.version"

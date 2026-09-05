@@ -46,6 +46,46 @@ bars. Written in Go with no external dependencies (stdlib only).
    configures your statusline
 3. Restart Claude Code
 
+### Via Nix
+
+1. Install the binary, either into your profile:
+
+```
+nix profile install github:fredrikaverpil/claudeline
+```
+
+or declaratively, as a flake input to a NixOS/nix-darwin/home-manager config:
+
+```nix
+{
+  inputs.claudeline = {
+    url = "github:fredrikaverpil/claudeline";
+    # Build against your nixpkgs, not the one this flake pins.
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+  # then add to home.packages/environment.systemPackages:
+  #   inputs.claudeline.packages.${system}.default
+}
+```
+
+`overlays.default` adds `pkgs.claudeline`. To skip the flake entirely, call the
+package definition with your own `pkgs`:
+
+```nix
+pkgs.callPackage (inputs.claudeline + "/package.nix") { }
+```
+
+2. Add the statusline to `~/.claude/settings.json` as shown under
+   [Manual](#manual) below, pointing the command at the installed `claudeline`
+3. Restart Claude Code
+
+> [!TIP]
+>
+> `nix run github:fredrikaverpil/claudeline -- -version` verifies the build
+> works. Don't use `nix run` as the statusline command itself — claudeline is
+> invoked on every turn and reads the Claude Code payload on stdin, so a flake
+> evaluation per run only adds latency.
+
 ### Manual
 
 1. Download the latest binary from
