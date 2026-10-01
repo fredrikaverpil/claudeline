@@ -16,12 +16,14 @@ import (
 // schema changes.
 type credentials struct {
 	ClaudeAiOauth struct {
-		AccessToken      string   `json:"accessToken"`
-		RefreshToken     string   `json:"refreshToken"`
-		ExpiresAt        int64    `json:"expiresAt"`
-		Scopes           []string `json:"scopes"`
-		SubscriptionType string   `json:"subscriptionType"`
-		RateLimitTier    string   `json:"rateLimitTier"`
+		AccessToken  string `json:"accessToken"`
+		RefreshToken string `json:"refreshToken"`
+		ExpiresAt    int64  `json:"expiresAt"`
+		// RefreshTokenExpiresAt is a Unix millisecond timestamp.
+		RefreshTokenExpiresAt int64    `json:"refreshTokenExpiresAt"`
+		Scopes                []string `json:"scopes"`
+		SubscriptionType      string   `json:"subscriptionType"`
+		RateLimitTier         string   `json:"rateLimitTier"`
 	} `json:"claudeAiOauth"`
 	// McpOAuth is present only when MCP servers with OAuth are configured.
 	// It is not subscription/provider/API specific. It may be absent in any testdata file.
@@ -29,10 +31,17 @@ type credentials struct {
 		ServerName     string `json:"serverName"`
 		ServerURL      string `json:"serverUrl"`
 		AccessToken    string `json:"accessToken"`
+		RefreshToken   string `json:"refreshToken"`
 		ExpiresAt      int64  `json:"expiresAt"`
+		ClientID       string `json:"clientId"`
+		Issuer         string `json:"issuer"`
+		RedirectURI    string `json:"redirectUri"`
+		Scope          string `json:"scope"`
 		DiscoveryState *struct {
-			AuthorizationServerURL string `json:"authorizationServerUrl"`
-			ResourceMetadataURL    string `json:"resourceMetadataUrl"`
+			AuthServerMetadataURL  *string `json:"authServerMetadataUrl"`
+			AuthorizationServerURL string  `json:"authorizationServerUrl"`
+			OAuthMetadataFound     bool    `json:"oauthMetadataFound"`
+			ResourceMetadataURL    string  `json:"resourceMetadataUrl"`
 		} `json:"discoveryState"`
 	} `json:"mcpOAuth"`
 }

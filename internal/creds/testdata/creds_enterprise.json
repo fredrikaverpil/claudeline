@@ -4,13 +4,34 @@
     "expiresAt": 0,
     "rateLimitTier": "default_claude_zero",
     "refreshToken": "sanitized",
+    "refreshTokenExpiresAt": 1792321184747,
     "scopes": [
       "user:file_upload",
       "user:inference",
       "user:mcp_servers",
+      "user:plugins",
       "user:profile",
       "user:sessions:claude_code"
     ],
     "subscriptionType": "enterprise"
+  },
+  "mcpOAuth": {
+    "server|sanitized_0": {
+      "accessToken": "sanitized",
+      "clientId": "https://claude.ai/oauth/claude-code-client-metadata",
+      "discoveryState": {
+        "authServerMetadataUrl": null,
+        "authorizationServerUrl": "https://sanitized.example.com/oauth",
+        "oauthMetadataFound": true,
+        "resourceMetadataUrl": "https://sanitized.example.com/.well-known"
+      },
+      "expiresAt": 0,
+      "issuer": "https://sanitized.example.com",
+      "redirectUri": "http://localhost:57330/callback",
+      "refreshToken": "sanitized",
+      "scope": "read write",
+      "serverName": "sanitized",
+      "serverUrl": "https://sanitized.example.com"
+    }
   }
 }
