@@ -67,6 +67,7 @@ type config struct {
 	showCwd         bool
 	cwdMaxLen       int
 	showCost        bool
+	showEffort      bool
 
 	// debug options
 	debug      bool
@@ -84,6 +85,7 @@ func runMain() int {
 	showCwd := flag.Bool("cwd", false, "show working directory name in the status line")
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
 	showCost := flag.Bool("cost", false, "show estimated session cost in the status line (always on for API key users)")
+	showEffort := flag.Bool("effort", false, "show model effort level next to the model name")
 	usageFile := flag.String("usage-file", "", "read usage data from file instead of API")
 	statusFile := flag.String("status-file", "", "read status data from file instead of API")
 	updateFile := flag.String("update-file", "", "read update data from file instead of API")
@@ -120,6 +122,7 @@ func runMain() int {
 		showCwd:         *showCwd,
 		cwdMaxLen:       *cwdMaxLen,
 		showCost:        *showCost,
+		showEffort:      *showEffort,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
 		updateFile:      *updateFile,
@@ -147,9 +150,14 @@ func run(cfg config) error {
 		cacheMiss = cu.CacheReadInputTokens == 0 && cu.CacheCreationInputTokens > 0
 	}
 
+	model := data.Model.DisplayName
+	if cfg.showEffort && model != "" && data.Effort != nil && data.Effort.Level != "" {
+		model += " (" + data.Effort.Level + ")"
+	}
+
 	output := render.Build(render.Params{
 		LoginType:          loginType,
-		Model:              data.Model.DisplayName,
+		Model:              model,
 		ContextUsedPct:     data.ContextWindow.UsedPercentage,
 		ContextWindowSize:  data.ContextWindow.ContextWindowSize,
 		CompactWindow:      os.Getenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW"),
