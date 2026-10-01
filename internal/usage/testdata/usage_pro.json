@@ -1,27 +1,123 @@
 {
+  "amber_cistern": null,
+  "amber_gauge": null,
+  "amber_ladder": null,
+  "brass_thimble": null,
+  "cedar_ember": null,
+  "cinder_cove": null,
+  "copper_kite": null,
   "extra_usage": {
+    "credits_ever_enabled": false,
     "currency": null,
+    "daily": null,
+    "decimal_places": null,
+    "disabled_reason": null,
     "is_enabled": false,
     "monthly_limit": null,
+    "spend_limit_reached": false,
     "used_credits": null,
-    "utilization": null
+    "user_disabled": false,
+    "utilization": null,
+    "weekly": null
   },
   "five_hour": {
-    "resets_at": "2026-04-25T14:50:00.853932+00:00",
-    "utilization": 15
+    "limit_dollars": null,
+    "locked_reason": null,
+    "remaining_dollars": null,
+    "resets_at": "2026-10-01T15:10:00.257288+00:00",
+    "used_dollars": null,
+    "utilization": 24
   },
-  "iguana_necktie": null,
+  "harbor_lantern": null,
+  "iguana_necktie": {
+    "limit_dollars": 100,
+    "locked_reason": null,
+    "remaining_dollars": 100,
+    "resets_at": "2026-11-05T07:59:00+00:00",
+    "used_dollars": 0,
+    "utilization": 0
+  },
+  "juniper_tide": null,
+  "limits": [
+    {
+      "group": "session",
+      "is_active": true,
+      "kind": "session",
+      "percent": 24,
+      "resets_at": "2026-10-01T15:10:00.257288+00:00",
+      "scope": null,
+      "severity": "normal"
+    },
+    {
+      "group": "weekly",
+      "is_active": false,
+      "kind": "weekly_all",
+      "percent": 5,
+      "resets_at": "2026-10-07T23:00:00.257311+00:00",
+      "scope": null,
+      "severity": "normal"
+    }
+  ],
+  "member_dashboard_available": false,
+  "nimbus_quill": null,
   "omelette_promotional": null,
   "seven_day": {
-    "resets_at": "2026-04-26T10:00:00.853950+00:00",
-    "utilization": 22
+    "limit_dollars": null,
+    "locked_reason": null,
+    "remaining_dollars": null,
+    "resets_at": "2026-10-07T23:00:00.257311+00:00",
+    "used_dollars": null,
+    "utilization": 5
+  },
+  "seven_day_breakdown": {
+    "as_of": "2026-10-01T12:49:07.271120+00:00",
+    "rows": [
+      {
+        "display_name": "Claude Code",
+        "key": "claude_code",
+        "percent": 100
+      },
+      {
+        "display_name": "Chats",
+        "key": "chat",
+        "percent": 0
+      },
+      {
+        "display_name": "Cowork",
+        "key": "cowork",
+        "percent": 0
+      },
+      {
+        "display_name": "Other",
+        "key": "other",
+        "percent": 0
+      }
+    ],
+    "window_started_at": "2026-09-30T23:00:00.257311+00:00"
   },
   "seven_day_cowork": null,
   "seven_day_oauth_apps": null,
-  "seven_day_omelette": {
-    "resets_at": null,
-    "utilization": 0
-  },
+  "seven_day_omelette": null,
   "seven_day_opus": null,
-  "seven_day_sonnet": null
+  "seven_day_sonnet": null,
+  "spend": {
+    "auto_reload": null,
+    "balance": null,
+    "can_purchase_credits": false,
+    "can_toggle": false,
+    "cap": null,
+    "disabled_reason": null,
+    "disclaimer": "Usage credits cover you when you hit your plan limits. [Learn more](https://support.claude.com/articles/12429409)",
+    "enabled": false,
+    "limit": null,
+    "percent": 0,
+    "severity": "normal",
+    "used": {
+      "amount_minor": 0,
+      "currency": "USD",
+      "exponent": 2
+    }
+  },
+  "tangelo": null,
+  "wattle_ember": null
 }

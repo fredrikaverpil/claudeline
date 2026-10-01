@@ -31,11 +31,67 @@ type usageResponse struct {
 	IguanaNecktie       *quotaLimit `json:"iguana_necktie"`
 	OmelettePromotional *quotaLimit `json:"omelette_promotional"`
 	ExtraUsage          *extraUsage `json:"extra_usage"`
+
+	// Fields whose non-null shape has not been observed.
+	AmberCistern  *any `json:"amber_cistern"`
+	AmberGauge    *any `json:"amber_gauge"`
+	AmberLadder   *any `json:"amber_ladder"`
+	BrassThimble  *any `json:"brass_thimble"`
+	CedarEmber    *any `json:"cedar_ember"`
+	CinderCove    *any `json:"cinder_cove"`
+	CopperKite    *any `json:"copper_kite"`
+	HarborLantern *any `json:"harbor_lantern"`
+	JuniperTide   *any `json:"juniper_tide"`
+	NimbusQuill   *any `json:"nimbus_quill"`
+	Tangelo       *any `json:"tangelo"`
+	WattleEmber   *any `json:"wattle_ember"`
+
+	Limits []struct {
+		Group    string  `json:"group"`
+		IsActive bool    `json:"is_active"`
+		Kind     string  `json:"kind"`
+		Percent  float64 `json:"percent"`
+		ResetsAt *string `json:"resets_at"`
+		Scope    *string `json:"scope"`
+		Severity string  `json:"severity"`
+	} `json:"limits"`
+	MemberDashboardAvailable bool `json:"member_dashboard_available"`
+	SevenDayBreakdown        *struct {
+		AsOf string `json:"as_of"`
+		Rows []struct {
+			DisplayName string  `json:"display_name"`
+			Key         string  `json:"key"`
+			Percent     float64 `json:"percent"`
+		} `json:"rows"`
+		WindowStartedAt string `json:"window_started_at"`
+	} `json:"seven_day_breakdown"`
+	Spend *struct {
+		AutoReload        any     `json:"auto_reload"`
+		Balance           any     `json:"balance"`
+		CanPurchaseCredit bool    `json:"can_purchase_credits"`
+		CanToggle         bool    `json:"can_toggle"`
+		Cap               any     `json:"cap"`
+		DisabledReason    *string `json:"disabled_reason"`
+		Disclaimer        string  `json:"disclaimer"`
+		Enabled           bool    `json:"enabled"`
+		Limit             any     `json:"limit"`
+		Percent           float64 `json:"percent"`
+		Severity          string  `json:"severity"`
+		Used              *struct {
+			AmountMinor int    `json:"amount_minor"`
+			Currency    string `json:"currency"`
+			Exponent    int    `json:"exponent"`
+		} `json:"used"`
+	} `json:"spend"`
 }
 
 type quotaLimit struct {
-	Utilization float64 `json:"utilization"`
-	ResetsAt    *string `json:"resets_at"`
+	Utilization      float64  `json:"utilization"`
+	ResetsAt         *string  `json:"resets_at"`
+	LimitDollars     *float64 `json:"limit_dollars"`
+	LockedReason     *string  `json:"locked_reason"`
+	RemainingDollars *float64 `json:"remaining_dollars"`
+	UsedDollars      *float64 `json:"used_dollars"`
 }
 
 type extraUsage struct {
@@ -44,6 +100,14 @@ type extraUsage struct {
 	MonthlyLimit *float64 `json:"monthly_limit"`
 	UsedCredits  *float64 `json:"used_credits"`
 	Utilization  *float64 `json:"utilization"`
+
+	CreditsEverEnabled bool    `json:"credits_ever_enabled"`
+	Daily              any     `json:"daily"`
+	DecimalPlaces      *int    `json:"decimal_places"`
+	DisabledReason     *string `json:"disabled_reason"`
+	SpendLimitReached  bool    `json:"spend_limit_reached"`
+	UserDisabled       bool    `json:"user_disabled"`
+	Weekly             any     `json:"weekly"`
 }
 
 func TestUsageResponseSchema(t *testing.T) {
