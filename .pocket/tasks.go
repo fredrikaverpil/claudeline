@@ -329,9 +329,24 @@ func sanitizePayload(m map[string]any) {
 	// Paths.
 	setNestedString(m, "/sanitized/transcript.jsonl", "transcript_path")
 	setNestedString(m, "/sanitized/project", "cwd")
+	setNestedString(m, "/sanitized/scratchpad", "scratchpad_dir")
 	if ws, ok := m["workspace"].(map[string]any); ok {
 		setNestedString(ws, "/sanitized/project", "current_dir")
 		setNestedString(ws, "/sanitized/project", "project_dir")
+		if dirs, ok := ws["added_dirs"].([]any); ok {
+			for i := range dirs {
+				dirs[i] = "/sanitized/added_dir"
+			}
+		}
+		if repo, ok := ws["repo"].(map[string]any); ok {
+			setNestedString(repo, "sanitized", "owner")
+			setNestedString(repo, "sanitized", "name")
+		}
+	}
+
+	// PR — the URL reveals owner and repository name.
+	if pr, ok := m["pr"].(map[string]any); ok {
+		setNestedString(pr, "https://sanitized.example.com/pull", "url")
 	}
 
 	// Cost — cumulative spending and session timing.
@@ -506,6 +521,8 @@ func sanitizeCredentials(m map[string]any) {
 		for _, v := range mcp {
 			if server, ok := v.(map[string]any); ok {
 				setNestedString(server, "sanitized", "accessToken")
+				setNestedString(server, "sanitized", "refreshToken")
+				setNestedString(server, "https://sanitized.example.com", "issuer")
 				setNestedString(server, "sanitized", "serverName")
 				setNestedString(server, "https://sanitized.example.com", "serverUrl")
 				if _, ok := server["expiresAt"]; ok {
