@@ -26,6 +26,9 @@ type Data struct {
 			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 		} `json:"current_usage"`
 	} `json:"context_window"`
+	Effort *struct {
+		Level string `json:"level"`
+	} `json:"effort"`
 	Exceeds200kTokens bool `json:"exceeds_200k_tokens"`
 	RateLimits        *struct {
 		FiveHour *RateLimit `json:"five_hour"`
