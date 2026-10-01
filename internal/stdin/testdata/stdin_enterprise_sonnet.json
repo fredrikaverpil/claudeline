@@ -1,11 +1,16 @@
 {
   "context_window": {
-    "context_window_size": 200000,
-    "current_usage": null,
-    "remaining_percentage": null,
-    "total_input_tokens": 0,
-    "total_output_tokens": 0,
-    "used_percentage": null
+    "context_window_size": 1000000,
+    "current_usage": {
+      "cache_creation_input_tokens": 599,
+      "cache_read_input_tokens": 106151,
+      "input_tokens": 2,
+      "output_tokens": 36
+    },
+    "remaining_percentage": 89,
+    "total_input_tokens": 106752,
+    "total_output_tokens": 36,
+    "used_percentage": 11
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -16,26 +21,62 @@
   },
   "cwd": "/sanitized/project",
   "effort": {
-    "level": "high"
+    "level": "low"
   },
   "exceeds_200k_tokens": false,
   "fast_mode": false,
   "model": {
-    "display_name": "Sonnet 4.6",
-    "id": "claude-sonnet-4-6"
+    "display_name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5"
   },
   "output_style": {
     "name": "default"
   },
+  "prompt_cache": {
+    "cache_write_tokens": 171150,
+    "caching_observed": true,
+    "expected_rebuilds": 0,
+    "expires_at": 1790867202,
+    "hit_ratio": 0.9475526296282002,
+    "last_miss_at": 1790863595,
+    "last_miss_cause": {
+      "causes": [
+        "model_changed",
+        "betas_changed",
+        "effort_changed",
+        "messages_rewritten"
+      ]
+    },
+    "miss_causes": {
+      "betas_changed": 1,
+      "effort_changed": 1,
+      "messages_rewritten": 1,
+      "model_changed": 1
+    },
+    "miss_recache_tokens": 79979,
+    "misses": 1,
+    "recache_tokens_if_cold": 106153,
+    "requests": 35,
+    "ttl": "1h",
+    "warm": true
+  },
+  "prompt_id": "9f63216c-d651-4d87-9bb7-ad5e870b5e25",
+  "scratchpad_dir": "/sanitized/scratchpad",
   "session_id": "sanitized-session-id",
+  "session_name": "sanitized-session-name",
   "thinking": {
     "enabled": true
   },
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.119",
+  "version": "2.1.286",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",
-    "project_dir": "/sanitized/project"
+    "project_dir": "/sanitized/project",
+    "repo": {
+      "host": "github.com",
+      "name": "sanitized",
+      "owner": "sanitized"
+    }
   }
 }
