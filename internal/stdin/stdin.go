@@ -14,6 +14,19 @@ type RateLimit struct {
 	ResetsAt       *float64 `json:"resets_at"` // Unix timestamp
 }
 
+// PromptCache is the main conversation's prompt cache ledger from Claude Code's stdin JSON.
+type PromptCache struct {
+	Warm          bool   `json:"warm"`
+	TTL           string `json:"ttl"`
+	ExpiresAt     *int64 `json:"expires_at"` // Unix timestamp
+	Requests      int    `json:"requests"`
+	Misses        int    `json:"misses"`
+	LastMissAt    *int64 `json:"last_miss_at"` // Unix timestamp
+	LastMissCause *struct {
+		Causes []string `json:"causes"`
+	} `json:"last_miss_cause"`
+}
+
 // Data is the JSON structure received from Claude Code via stdin.
 // See Payload in stdin_test.go for the full schema.
 type Data struct {
@@ -41,16 +54,7 @@ type Data struct {
 	Cost struct {
 		TotalCostUSD float64 `json:"total_cost_usd"`
 	} `json:"cost"`
-	PromptCache *struct {
-		TTL           string `json:"ttl"`
-		ExpiresAt     *int64 `json:"expires_at"`
-		Requests      int    `json:"requests"`
-		Misses        int    `json:"misses"`
-		LastMissAt    *int64 `json:"last_miss_at"`
-		LastMissCause *struct {
-			Causes []string `json:"causes"`
-		} `json:"last_miss_cause"`
-	} `json:"prompt_cache"`
+	PromptCache *PromptCache `json:"prompt_cache"`
 }
 
 // Parse unmarshals the Claude Code stdin JSON.
