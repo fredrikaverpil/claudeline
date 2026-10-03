@@ -4,10 +4,12 @@
     "expiresAt": 0,
     "rateLimitTier": "default_claude_ai",
     "refreshToken": "sanitized",
+    "refreshTokenExpiresAt": 1792902498127,
     "scopes": [
       "user:file_upload",
       "user:inference",
       "user:mcp_servers",
+      "user:plugins",
       "user:profile",
       "user:sessions:claude_code"
     ],

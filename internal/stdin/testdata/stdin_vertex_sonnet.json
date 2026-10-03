@@ -1,16 +1,16 @@
 {
   "context_window": {
-    "context_window_size": 200000,
+    "context_window_size": 1000000,
     "current_usage": {
-      "cache_creation_input_tokens": 386,
-      "cache_read_input_tokens": 58520,
-      "input_tokens": 1,
-      "output_tokens": 71
+      "cache_creation_input_tokens": 1688,
+      "cache_read_input_tokens": 32160,
+      "input_tokens": 2,
+      "output_tokens": 3
     },
-    "remaining_percentage": 71,
-    "total_input_tokens": 70283,
-    "total_output_tokens": 55110,
-    "used_percentage": 29
+    "remaining_percentage": 97,
+    "total_input_tokens": 33850,
+    "total_output_tokens": 3,
+    "used_percentage": 3
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -26,21 +26,44 @@
   "exceeds_200k_tokens": false,
   "fast_mode": false,
   "model": {
-    "display_name": "Sonnet 4.6",
-    "id": "claude-sonnet-4-6"
+    "display_name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5"
   },
   "output_style": {
     "name": "default"
   },
+  "prompt_cache": {
+    "cache_write_tokens": 32160,
+    "caching_observed": true,
+    "expected_rebuilds": 0,
+    "expires_at": 1791062490,
+    "hit_ratio": 0.49645401174168297,
+    "last_miss_at": null,
+    "last_miss_cause": null,
+    "miss_causes": {},
+    "miss_recache_tokens": 0,
+    "misses": 0,
+    "recache_tokens_if_cold": 32162,
+    "requests": 2,
+    "ttl": "5m",
+    "warm": true
+  },
+  "prompt_id": "81c97775-aa9d-47c5-8b49-ad2204b471b1",
   "session_id": "sanitized-session-id",
+  "session_name": "sanitized-session-name",
   "thinking": {
     "enabled": true
   },
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.119",
+  "version": "2.1.288",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",
-    "project_dir": "/sanitized/project"
+    "project_dir": "/sanitized/project",
+    "repo": {
+      "host": "github.com",
+      "name": "sanitized",
+      "owner": "sanitized"
+    }
   }
 }

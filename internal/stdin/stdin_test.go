@@ -32,6 +32,11 @@ type payload struct {
 		CurrentDir string   `json:"current_dir"`
 		ProjectDir string   `json:"project_dir"`
 		AddedDirs  []string `json:"added_dirs"`
+		Repo       *struct {
+			Host  string `json:"host"`
+			Name  string `json:"name"`
+			Owner string `json:"owner"`
+		} `json:"repo"`
 	} `json:"workspace"`
 	Version     string `json:"version"`
 	OutputStyle struct {
@@ -70,6 +75,35 @@ type payload struct {
 		FiveHour *rateLimit `json:"five_hour"`
 		SevenDay *rateLimit `json:"seven_day"`
 	} `json:"rate_limits"`
+	PR *struct {
+		Number      int    `json:"number"`
+		ReviewState string `json:"review_state"`
+		URL         string `json:"url"`
+	} `json:"pr"`
+	PromptCache *struct {
+		CacheWriteTokens int      `json:"cache_write_tokens"`
+		CachingObserved  bool     `json:"caching_observed"`
+		ExpectedRebuilds int      `json:"expected_rebuilds"`
+		ExpiresAt        *int64   `json:"expires_at"`
+		HitRatio         *float64 `json:"hit_ratio"`
+		LastMissAt       *int64   `json:"last_miss_at"`
+		LastMissCause    *struct {
+			// Causes is a closed set, e.g. "tools_changed", "ttl_expired_1h", "unknown".
+			Causes          []string `json:"causes"`
+			ToolsAdded      int      `json:"tools_added"`
+			ToolsRemoved    int      `json:"tools_removed"`
+			SystemCharDelta int      `json:"system_char_delta"`
+		} `json:"last_miss_cause"`
+		MissCauses          map[string]int `json:"miss_causes"`
+		MissRecacheTokens   int            `json:"miss_recache_tokens"`
+		Misses              int            `json:"misses"`
+		RecacheTokensIfCold *int           `json:"recache_tokens_if_cold"`
+		Requests            int            `json:"requests"`
+		TTL                 string         `json:"ttl"`
+		Warm                bool           `json:"warm"`
+	} `json:"prompt_cache"`
+	PromptID      string `json:"prompt_id"`
+	ScratchpadDir string `json:"scratchpad_dir"`
 }
 
 // TestPayloadDiff compares all testdata files and reports which fields

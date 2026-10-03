@@ -2,15 +2,15 @@
   "context_window": {
     "context_window_size": 1000000,
     "current_usage": {
-      "cache_creation_input_tokens": 168,
-      "cache_read_input_tokens": 83845,
-      "input_tokens": 1,
-      "output_tokens": 116
+      "cache_creation_input_tokens": 645,
+      "cache_read_input_tokens": 61989,
+      "input_tokens": 2,
+      "output_tokens": 44
     },
-    "remaining_percentage": 92,
-    "total_input_tokens": 69725,
-    "total_output_tokens": 46686,
-    "used_percentage": 8
+    "remaining_percentage": 94,
+    "total_input_tokens": 62636,
+    "total_output_tokens": 44,
+    "used_percentage": 6
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -26,21 +26,60 @@
   "exceeds_200k_tokens": false,
   "fast_mode": false,
   "model": {
-    "display_name": "Sonnet 4.6",
-    "id": "claude-sonnet-4-6"
+    "display_name": "Sonnet 5.5",
+    "id": "claude-sonnet-5-5"
   },
   "output_style": {
     "name": "default"
   },
+  "pr": {
+    "number": 128,
+    "review_state": "draft",
+    "url": "https://sanitized.example.com/pull"
+  },
+  "prompt_cache": {
+    "cache_write_tokens": 37842,
+    "caching_observed": true,
+    "expected_rebuilds": 0,
+    "expires_at": 1790862539,
+    "hit_ratio": 0.9531753636537855,
+    "last_miss_at": null,
+    "last_miss_cause": null,
+    "miss_causes": {},
+    "miss_recache_tokens": 0,
+    "misses": 0,
+    "recache_tokens_if_cold": 61991,
+    "requests": 15,
+    "ttl": "1h",
+    "warm": true
+  },
+  "prompt_id": "03c79e19-3479-435d-85fc-5d4f4d653f25",
+  "rate_limits": {
+    "five_hour": {
+      "resets_at": 1790867400,
+      "used_percentage": 23
+    },
+    "seven_day": {
+      "resets_at": 1791414000,
+      "used_percentage": 5
+    }
+  },
+  "scratchpad_dir": "/sanitized/scratchpad",
   "session_id": "sanitized-session-id",
+  "session_name": "sanitized-session-name",
   "thinking": {
     "enabled": true
   },
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.119",
+  "version": "2.1.288",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",
-    "project_dir": "/sanitized/project"
+    "project_dir": "/sanitized/project",
+    "repo": {
+      "host": "github.com",
+      "name": "sanitized",
+      "owner": "sanitized"
+    }
   }
 }

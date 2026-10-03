@@ -1,21 +1,68 @@
 {
+  "amber_cistern": null,
+  "amber_gauge": null,
+  "amber_ladder": null,
+  "brass_thimble": null,
+  "cedar_ember": null,
+  "cinder_cove": null,
+  "copper_kite": null,
   "extra_usage": {
+    "credits_ever_enabled": true,
     "currency": "USD",
+    "daily": null,
+    "decimal_places": 2,
+    "disabled_reason": null,
     "is_enabled": true,
-    "monthly_limit": 100000,
-    "used_credits": 68055,
-    "utilization": 68.05499999999999
+    "monthly_limit": 60000,
+    "spend_limit_reached": false,
+    "used_credits": 719,
+    "user_disabled": false,
+    "utilization": 1.1983333333333335,
+    "weekly": null
   },
   "five_hour": null,
+  "harbor_lantern": null,
   "iguana_necktie": null,
-  "omelette_promotional": {
-    "resets_at": null,
-    "utilization": 0
-  },
+  "juniper_tide": null,
+  "limits": [],
+  "member_dashboard_available": true,
+  "nimbus_quill": null,
+  "omelette_promotional": null,
   "seven_day": null,
+  "seven_day_breakdown": null,
   "seven_day_cowork": null,
   "seven_day_oauth_apps": null,
   "seven_day_omelette": null,
   "seven_day_opus": null,
-  "seven_day_sonnet": null
+  "seven_day_sonnet": null,
+  "spend": {
+    "auto_reload": null,
+    "balance": null,
+    "can_purchase_credits": false,
+    "can_toggle": false,
+    "cap": {
+      "credits": {
+        "amount_minor": 60000,
+        "exponent": 2
+      },
+      "money": null
+    },
+    "disabled_reason": null,
+    "disclaimer": "Usage credits cover you when you hit your plan limits. [Learn more](https://support.claude.com/articles/12429409)",
+    "enabled": true,
+    "limit": {
+      "amount_minor": 60000,
+      "currency": "USD",
+      "exponent": 2
+    },
+    "percent": 1,
+    "severity": "normal",
+    "used": {
+      "amount_minor": 719,
+      "currency": "USD",
+      "exponent": 2
+    }
+  },
+  "tangelo": null,
+  "wattle_ember": null
 }

@@ -2,15 +2,15 @@
   "context_window": {
     "context_window_size": 1000000,
     "current_usage": {
-      "cache_creation_input_tokens": 584,
-      "cache_read_input_tokens": 105402,
+      "cache_creation_input_tokens": 662,
+      "cache_read_input_tokens": 158592,
       "input_tokens": 2,
-      "output_tokens": 2
+      "output_tokens": 3
     },
-    "remaining_percentage": 89,
-    "total_input_tokens": 105988,
-    "total_output_tokens": 2,
-    "used_percentage": 11
+    "remaining_percentage": 84,
+    "total_input_tokens": 159256,
+    "total_output_tokens": 3,
+    "used_percentage": 16
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -26,29 +26,35 @@
   "exceeds_200k_tokens": false,
   "fast_mode": false,
   "model": {
-    "display_name": "Sonnet 5.5",
-    "id": "claude-sonnet-5-5"
+    "display_name": "Opus 5.5",
+    "id": "claude-opus-5-5"
   },
   "output_style": {
     "name": "default"
   },
+  "pr": {
+    "number": 131,
+    "review_state": "draft",
+    "url": "https://sanitized.example.com/pull"
+  },
   "prompt_cache": {
-    "cache_write_tokens": 177130,
+    "cache_write_tokens": 290768,
     "caching_observed": true,
     "expected_rebuilds": 0,
-    "expires_at": 1791063137,
-    "hit_ratio": 0.4816644232457424,
-    "last_miss_at": 1791062836,
+    "expires_at": 1791066999,
+    "hit_ratio": 0.3911499458728294,
+    "last_miss_at": 1791063398,
     "last_miss_cause": null,
     "miss_causes": {},
-    "miss_recache_tokens": 81894,
+    "miss_recache_tokens": 130938,
     "misses": 1,
-    "recache_tokens_if_cold": 105404,
+    "recache_tokens_if_cold": 158594,
     "requests": 3,
-    "ttl": "5m",
+    "ttl": "1h",
     "warm": true
   },
-  "prompt_id": "59341255-30c1-4ab1-841c-e24564445a42",
+  "prompt_id": "0eac252d-d915-4800-8870-7f9311dc3650",
+  "scratchpad_dir": "/sanitized/scratchpad",
   "session_id": "sanitized-session-id",
   "session_name": "sanitized-session-name",
   "thinking": {

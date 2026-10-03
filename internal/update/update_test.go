@@ -20,8 +20,8 @@ func TestReadResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if resp.TagName != "v0.23.0" {
-		t.Errorf("ReadResponse().TagName = %q, want %q", resp.TagName, "v0.23.0")
+	if resp.TagName != "v0.24.2" {
+		t.Errorf("ReadResponse().TagName = %q, want %q", resp.TagName, "v0.24.2")
 	}
 }
 

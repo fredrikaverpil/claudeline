@@ -19,8 +19,9 @@ func TestKeychainServiceNameWiring(t *testing.T) {
 }
 
 func BenchmarkRun(b *testing.B) {
-	// Use testdata files so the benchmark is fully offline.
-	stdinFile := "internal/stdin/testdata/stdin_pro_opus.json"
+	// Offline testdata. Keep the Pro payload: it has rate_limits, pr and
+	// prompt_cache, so the full render path runs.
+	stdinFile := "internal/stdin/testdata/stdin_pro_sonnet.json"
 	usageFile := "internal/usage/testdata/usage_pro.json"
 	statusFile := "internal/status/testdata/status.json"
 
