@@ -145,11 +145,6 @@ func run(cfg config) error {
 	cred, loginType, isProvider := creds.Resolve(ctx, debugMode, configDir)
 	remote := fetchRemoteData(ctx, cfg, cred, loginType, isProvider)
 
-	cacheMiss := false
-	if cu := data.ContextWindow.CurrentUsage; cu != nil {
-		cacheMiss = cu.CacheReadInputTokens == 0 && cu.CacheCreationInputTokens > 0
-	}
-
 	model := data.Model.DisplayName
 	if cfg.showEffort && model != "" && data.Effort != nil && data.Effort.Level != "" {
 		model += " (" + data.Effort.Level + ")"
@@ -163,7 +158,7 @@ func run(cfg config) error {
 		CompactWindow:      os.Getenv("CLAUDE_CODE_AUTO_COMPACT_WINDOW"),
 		CompactPctOverride: os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"),
 		Exceeds200kTokens:  data.Exceeds200kTokens,
-		CacheMiss:          cacheMiss,
+		CacheMiss:          data.CacheMiss(),
 		Usage:              remote.usage,
 		StdinRateLimits:    data.RateLimits,
 		SubscriptionType:   cred.ClaudeAiOauth.SubscriptionType,
