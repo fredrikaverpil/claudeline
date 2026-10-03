@@ -2,6 +2,7 @@ package stdin
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -228,6 +229,7 @@ func TestParse(t *testing.T) {
 					ContextWindowSize int      `json:"context_window_size"`
 					UsedPercentage    *float64 `json:"used_percentage"`
 					CurrentUsage      *struct {
+						InputTokens              int `json:"input_tokens"`
 						CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 						CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 					} `json:"current_usage"`
@@ -299,12 +301,14 @@ func TestParse(t *testing.T) {
 					ContextWindowSize int      `json:"context_window_size"`
 					UsedPercentage    *float64 `json:"used_percentage"`
 					CurrentUsage      *struct {
+						InputTokens              int `json:"input_tokens"`
 						CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 						CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 					} `json:"current_usage"`
 				}{
 					UsedPercentage: &pct,
 					CurrentUsage: &struct {
+						InputTokens              int `json:"input_tokens"`
 						CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 						CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 					}{
@@ -517,6 +521,84 @@ func TestPayloadSchema(t *testing.T) {
 			}
 			if p.ContextWindow.ContextWindowSize == 0 {
 				t.Error("context_window.context_window_size is 0")
+			}
+		})
+	}
+}
+
+func TestCacheMiss(t *testing.T) {
+	t.Parallel()
+
+	// payload builds stdin JSON with a 1h prompt cache whose last request was at 1000.
+	payload := func(lastMissAt string, cacheRead, cacheCreation int) string {
+		return fmt.Sprintf(`{"context_window":{"current_usage":{"input_tokens":2,`+
+			`"cache_read_input_tokens":%d,"cache_creation_input_tokens":%d}},`+
+			`"prompt_cache":{"ttl":"1h","expires_at":4600,"requests":5,"misses":1,`+
+			`"last_miss_at":%s,"last_miss_cause":{"causes":["model_changed"]}}}`,
+			cacheRead, cacheCreation, lastMissAt)
+	}
+
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{name: "no prompt_cache", input: `{"context_window":{}}`, want: false},
+		{name: "no miss", input: payload("null", 0, 50000), want: false},
+		{name: "latest request missed", input: payload("1000", 10000, 50000), want: true},
+		{name: "latest request missed, rounded apart", input: payload("999", 10000, 50000), want: true},
+		{name: "miss on an earlier request", input: payload("998", 10000, 50000), want: false},
+		{name: "latest request mostly read from cache", input: payload("999", 100000, 584), want: false},
+		{name: "latest request wrote too little to miss", input: payload("1000", 0, 1500), want: false},
+		{
+			name: "expires_at null",
+			input: `{"context_window":{"current_usage":{"cache_creation_input_tokens":50000}},` +
+				`"prompt_cache":{"ttl":"1h","expires_at":null,"last_miss_at":1000}}`,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			data, err := Parse([]byte(tt.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := data.CacheMiss()
+
+			if got != tt.want {
+				t.Errorf("CacheMiss() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCacheMissTestdata(t *testing.T) {
+	t.Parallel()
+
+	files, err := filepath.Glob("testdata/stdin_*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		t.Run(filepath.Base(f), func(t *testing.T) {
+			t.Parallel()
+			b, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := Parse(b)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := data.CacheMiss()
+
+			// Every captured render followed a cache hit.
+			if got {
+				t.Errorf("CacheMiss() = true, want false")
 			}
 		})
 	}

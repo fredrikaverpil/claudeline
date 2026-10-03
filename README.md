@@ -148,6 +148,11 @@ Key components:
 - **Extended context indicator:** A `🥵` appears on the context bar when
   `exceeds_200k_tokens` is true, signaling the session has entered extended
   context territory where model quality may degrade.
+- **Prompt cache miss:** A `🥊` appears on the context bar when the latest
+  request missed the prompt cache, as recorded in the `prompt_cache` stdin
+  field. Expected rebuilds (compaction, tool-result clearing) don't count. With
+  `-debug`, each miss logs its causes (e.g. `model_changed`), or `undiagnosed`
+  when Claude Code gives none.
 - **Update check:** Fetches
   `https://api.github.com/repos/fredrikaverpil/claudeline/releases/latest`
   (GitHub API, no auth required). Release tag is cached in
