@@ -30,7 +30,7 @@
     "id": "claude-sonnet-5-5"
   },
   "output_style": {
-    "name": "Terse"
+    "name": "default"
   },
   "pr": {
     "number": 128,
@@ -71,7 +71,7 @@
     "enabled": true
   },
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.286",
+  "version": "2.1.288",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",
