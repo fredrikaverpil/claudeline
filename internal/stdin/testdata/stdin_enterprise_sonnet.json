@@ -2,15 +2,15 @@
   "context_window": {
     "context_window_size": 1000000,
     "current_usage": {
-      "cache_creation_input_tokens": 599,
-      "cache_read_input_tokens": 106151,
+      "cache_creation_input_tokens": 389,
+      "cache_read_input_tokens": 145539,
       "input_tokens": 2,
-      "output_tokens": 36
+      "output_tokens": 53
     },
-    "remaining_percentage": 89,
-    "total_input_tokens": 106752,
-    "total_output_tokens": 36,
-    "used_percentage": 11
+    "remaining_percentage": 85,
+    "total_input_tokens": 145930,
+    "total_output_tokens": 53,
+    "used_percentage": 15
   },
   "cost": {
     "total_api_duration_ms": 0,
@@ -21,7 +21,7 @@
   },
   "cwd": "/sanitized/project",
   "effort": {
-    "level": "low"
+    "level": "high"
   },
   "exceeds_200k_tokens": false,
   "fast_mode": false,
@@ -32,35 +32,36 @@
   "output_style": {
     "name": "default"
   },
+  "pr": {
+    "number": 131,
+    "review_state": "draft",
+    "url": "https://sanitized.example.com/pull"
+  },
   "prompt_cache": {
-    "cache_write_tokens": 171150,
+    "cache_write_tokens": 442537,
     "caching_observed": true,
     "expected_rebuilds": 0,
-    "expires_at": 1790867202,
-    "hit_ratio": 0.9475526296282002,
-    "last_miss_at": 1790863595,
+    "expires_at": 1791067085,
+    "hit_ratio": 0.7460068124230589,
+    "last_miss_at": 1791063473,
     "last_miss_cause": {
       "causes": [
         "model_changed",
-        "betas_changed",
-        "effort_changed",
         "messages_rewritten"
       ]
     },
     "miss_causes": {
-      "betas_changed": 1,
-      "effort_changed": 1,
       "messages_rewritten": 1,
       "model_changed": 1
     },
-    "miss_recache_tokens": 79979,
-    "misses": 1,
-    "recache_tokens_if_cold": 106153,
-    "requests": 35,
+    "miss_recache_tokens": 276017,
+    "misses": 2,
+    "recache_tokens_if_cold": 145541,
+    "requests": 11,
     "ttl": "1h",
     "warm": true
   },
-  "prompt_id": "9f63216c-d651-4d87-9bb7-ad5e870b5e25",
+  "prompt_id": "d680efb8-6bd6-4cbe-9a42-4a7a1b4edf56",
   "scratchpad_dir": "/sanitized/scratchpad",
   "session_id": "sanitized-session-id",
   "session_name": "sanitized-session-name",
@@ -68,7 +69,7 @@
     "enabled": true
   },
   "transcript_path": "/sanitized/transcript.jsonl",
-  "version": "2.1.286",
+  "version": "2.1.288",
   "workspace": {
     "added_dirs": [],
     "current_dir": "/sanitized/project",
