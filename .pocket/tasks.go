@@ -344,6 +344,11 @@ func sanitizePayload(m map[string]any) {
 		}
 	}
 
+	// Output style — user-specific.
+	if style, ok := m["output_style"].(map[string]any); ok {
+		setNestedString(style, "default", "name")
+	}
+
 	// PR — the URL reveals owner and repository name.
 	if pr, ok := m["pr"].(map[string]any); ok {
 		setNestedString(pr, "https://sanitized.example.com/pull", "url")
