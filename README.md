@@ -29,6 +29,7 @@ bars. Written in Go with no external dependencies (stdlib only).
 | `🥵`                 | Extended context (>200k tokens) — model quality may degrade                                                                                                           |
 | `🔥▂` `🔥▄▂` `🔥▆▄▂` | Anthropic service disruption (minor / major / critical)                                                                                                               |
 | `🥊`                 | [Prompt cache](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#how-prompt-caching-works) miss — this turn was not served from cache (costs more) |
+| `⏳`                 | Prompt cache goes cold at this time, or in this many minutes (red once cold)                                                                                          |
 | `↑`                  | New `claudeline` update available                                                                                                                                     |
 
 ## Installation
@@ -79,6 +80,7 @@ bars. Written in Go with no external dependencies (stdlib only).
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
 | `-cost`               | `false` | Show estimated session cost in the status line       |
 | `-effort`             | `false` | Show model effort level, e.g. `Sonnet 5.5 (xhigh)`   |
+| `-cache-expiry`       |         | Prompt cache expiry: `time` or `countdown`           |
 | `-usage-file`         |         | Read usage data from file instead of API             |
 | `-status-file`        |         | Read status data from file instead of API            |
 | `-update-file`        |         | Read update data from file instead of API            |
@@ -153,6 +155,28 @@ Key components:
   field. Expected rebuilds (compaction, tool-result clearing) don't count. With
   `-debug`, each miss logs its causes (e.g. `model_changed`), or `undiagnosed`
   when Claude Code gives none.
+- **Prompt cache expiry:** Opt-in with `-cache-expiry`, from
+  `prompt_cache.expires_at` in stdin. Turns red once the cache is cold, as the
+  next request re-caches the whole prompt. Claude Code re-runs the status line
+  at expiry, so the red shows up while idle. Pick one mode:
+  - `time`: `⏳14:32` on the context bar, the clock time when the cache goes
+    cold.
+  - `countdown`: `⏳12m`, the minutes left, shown during the last 25% of a
+    `1h` cache TTL (15 minutes) or throughout a `5m` one, then `⏳0m` once
+    cold. The status line doesn't otherwise re-run while idle, so set
+    [`refreshInterval`](https://code.claude.com/docs/en/statusline#manually-configure-a-status-line)
+    for the countdown to appear and tick:
+
+    ```json
+    {
+      "statusLine": {
+        "type": "command",
+        "command": "claudeline -cache-expiry=countdown",
+        "refreshInterval": 30
+      }
+    }
+    ```
+
 - **Update check:** Fetches
   `https://api.github.com/repos/fredrikaverpil/claudeline/releases/latest`
   (GitHub API, no auth required). Release tag is cached in
