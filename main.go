@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -68,6 +69,7 @@ type config struct {
 	cwdMaxLen       int
 	showCost        bool
 	showEffort      bool
+	cacheExpiry     string
 
 	// debug options
 	debug      bool
@@ -86,6 +88,16 @@ func runMain() int {
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
 	showCost := flag.Bool("cost", false, "show estimated session cost in the status line (always on for API key users)")
 	showEffort := flag.Bool("effort", false, "show model effort level next to the model name")
+	var cacheExpiry string
+	flag.Func("cache-expiry", "show when the prompt cache goes cold: time, or countdown (needs refreshInterval)",
+		func(s string) error {
+			if s != render.CacheExpiryTime && s != render.CacheExpiryCountdown {
+				return errors.New("want time or countdown")
+			}
+			cacheExpiry = s
+			return nil
+		},
+	)
 	usageFile := flag.String("usage-file", "", "read usage data from file instead of API")
 	statusFile := flag.String("status-file", "", "read status data from file instead of API")
 	updateFile := flag.String("update-file", "", "read update data from file instead of API")
@@ -123,6 +135,7 @@ func runMain() int {
 		cwdMaxLen:       *cwdMaxLen,
 		showCost:        *showCost,
 		showEffort:      *showEffort,
+		cacheExpiry:     cacheExpiry,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
 		updateFile:      *updateFile,
@@ -159,6 +172,8 @@ func run(cfg config) error {
 		CompactPctOverride: os.Getenv("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"),
 		Exceeds200kTokens:  data.Exceeds200kTokens,
 		CacheMiss:          data.CacheMiss(),
+		CacheExpiry:        cfg.cacheExpiry,
+		PromptCache:        data.PromptCache,
 		Usage:              remote.usage,
 		StdinRateLimits:    data.RateLimits,
 		SubscriptionType:   cred.ClaudeAiOauth.SubscriptionType,

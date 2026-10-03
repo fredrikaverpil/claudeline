@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/fredrikaverpil/claudeline/internal/stdin"
 )
 
 func TestContextColorFunc(t *testing.T) {
@@ -723,6 +725,158 @@ func TestCompactName(t *testing.T) {
 			}
 			if len([]rune(got)) > tt.maxLen {
 				t.Errorf("compactName(%q, %d) rune length = %d, exceeds maxLen", tt.input, tt.maxLen, len([]rune(got)))
+			}
+		})
+	}
+}
+
+func TestCacheExpiry(t *testing.T) {
+	t.Parallel()
+
+	// Use local time to match ResetTimeUnix's .Local() conversion.
+	now := time.Date(2026, 3, 9, 10, 0, 0, 0, time.Local)
+	at := func(d time.Duration) *int64 {
+		ts := now.Add(d).Unix()
+		return &ts
+	}
+
+	tests := []struct {
+		name      string
+		mode      string
+		expiresAt *int64
+		warm      bool
+		ttl       time.Duration
+		want      string
+	}{
+		{name: "time, nil", mode: CacheExpiryTime, expiresAt: nil, warm: true, ttl: time.Hour, want: ""},
+		{
+			name: "time, same day", mode: CacheExpiryTime, expiresAt: at(5 * time.Minute), warm: true, ttl: time.Hour,
+			want: "⏳10:05",
+		},
+		{
+			name:      "time, different day",
+			mode:      CacheExpiryTime,
+			expiresAt: at(24 * time.Hour),
+			warm:      true,
+			ttl:       time.Hour,
+			want:      "⏳" + now.Add(24*time.Hour).Format("Mon 15:04"),
+		},
+		{
+			name: "time, expires now", mode: CacheExpiryTime, expiresAt: at(0), warm: true, ttl: time.Hour,
+			want: "⏳" + Red + "10:00" + Reset,
+		},
+		{
+			name: "time, expired", mode: CacheExpiryTime, expiresAt: at(-2 * time.Hour), warm: true, ttl: time.Hour,
+			want: "⏳" + Red + "08:00" + Reset,
+		},
+		{
+			name: "time, cold", mode: CacheExpiryTime, expiresAt: at(-2 * time.Hour), warm: false, ttl: time.Hour,
+			want: "⏳" + Red + "08:00" + Reset,
+		},
+		{
+			name:      "countdown, fresh",
+			mode:      CacheExpiryCountdown,
+			expiresAt: at(42 * time.Minute),
+			warm:      true,
+			ttl:       time.Hour,
+			want:      "",
+		},
+		{
+			name:      "countdown, last quarter",
+			mode:      CacheExpiryCountdown,
+			expiresAt: at(15 * time.Minute),
+			warm:      true,
+			ttl:       time.Hour,
+			want:      "⏳15m",
+		},
+		{
+			name: "countdown, rounds up", mode: CacheExpiryCountdown, expiresAt: at(4*time.Minute + 10*time.Second),
+			warm: true, ttl: time.Hour, want: "⏳5m",
+		},
+		{
+			name:      "countdown, last seconds",
+			mode:      CacheExpiryCountdown,
+			expiresAt: at(time.Second),
+			warm:      true,
+			ttl:       time.Hour,
+			want:      "⏳1m",
+		},
+		{
+			name:      "countdown, 5m ttl shown throughout",
+			mode:      CacheExpiryCountdown,
+			expiresAt: at(5 * time.Minute),
+			warm:      true,
+			ttl:       5 * time.Minute,
+			want:      "⏳5m",
+		},
+		{
+			name: "countdown, 5m ttl last quarter", mode: CacheExpiryCountdown, expiresAt: at(time.Minute),
+			warm: true, ttl: 5 * time.Minute, want: "⏳1m",
+		},
+		{
+			name: "countdown, zero ttl", mode: CacheExpiryCountdown, expiresAt: at(time.Minute), warm: true, ttl: 0,
+			want: "⏳1m",
+		},
+		{
+			name: "countdown, expired", mode: CacheExpiryCountdown, expiresAt: at(-time.Second), warm: true,
+			ttl: time.Hour, want: "⏳" + Red + "0m" + Reset,
+		},
+		{
+			name: "countdown, cold", mode: CacheExpiryCountdown, expiresAt: at(-2 * time.Hour), warm: false,
+			ttl: time.Hour, want: "⏳" + Red + "0m" + Reset,
+		},
+		{name: "countdown, nil", mode: CacheExpiryCountdown, expiresAt: nil, warm: false, ttl: time.Hour, want: ""},
+		{name: "off", mode: "", expiresAt: at(time.Minute), warm: true, ttl: time.Hour, want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := CacheExpiry(tt.mode, tt.expiresAt, tt.warm, tt.ttl, now)
+
+			if got != tt.want {
+				t.Errorf("CacheExpiry() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuild_CacheExpiry(t *testing.T) {
+	t.Parallel()
+
+	pct := 25.0
+	expiresAt := time.Now().Add(time.Hour).Unix()
+	expiredAt := time.Now().Add(-time.Hour).Unix()
+
+	tests := []struct {
+		name      string
+		mode      string
+		warm      bool
+		expiresAt *int64
+		want      bool
+	}{
+		{name: "shown when enabled", mode: CacheExpiryTime, warm: true, expiresAt: &expiresAt, want: true},
+		{name: "hidden when disabled", mode: "", warm: true, expiresAt: &expiresAt, want: false},
+		{name: "shown when cold", mode: CacheExpiryTime, warm: false, expiresAt: &expiredAt, want: true},
+		{name: "hidden without expires_at", mode: CacheExpiryTime, warm: false, expiresAt: nil, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := Params{
+				LoginType:      "Pro",
+				Model:          "Opus",
+				ContextUsedPct: &pct,
+				CacheExpiry:    tt.mode,
+				PromptCache:    &stdin.PromptCache{Warm: tt.warm, TTL: "1h", ExpiresAt: tt.expiresAt},
+			}
+
+			got := strings.Contains(Build(p), "⏳")
+
+			if got != tt.want {
+				t.Errorf("Build() contains ⏳ = %v, want %v", got, tt.want)
 			}
 		})
 	}

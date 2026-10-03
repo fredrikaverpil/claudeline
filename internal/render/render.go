@@ -31,6 +31,12 @@ const (
 
 const barWidth = 5
 
+// Cache expiry display modes.
+const (
+	CacheExpiryTime      = "time"
+	CacheExpiryCountdown = "countdown"
+)
+
 // Params holds all data needed to build the statusline.
 type Params struct {
 	LoginType          string
@@ -55,12 +61,16 @@ type Params struct {
 	Branch           string // current git branch name
 	BranchMaxLen     int
 	CacheMiss        bool
+	CacheExpiry      string // CacheExpiryTime, CacheExpiryCountdown or "" (off)
+	PromptCache      *stdin.PromptCache
 	ShowCost         bool
 	CostUSD          float64
 }
 
 // Build assembles the complete statusline string from all collected data.
 func Build(p Params) string {
+	now := time.Now()
+
 	// Identity.
 	identity := Identity(p.LoginType, p.Model)
 
@@ -80,12 +90,18 @@ func Build(p Params) string {
 	if p.CacheMiss {
 		contextBar += " 🥊"
 	}
+	if pc := p.PromptCache; p.CacheExpiry != "" && pc != nil {
+		// A malformed ttl is zero, which always shows the countdown.
+		ttl, _ := time.ParseDuration(pc.TTL)
+		if expiry := CacheExpiry(p.CacheExpiry, pc.ExpiresAt, pc.Warm, ttl, now); expiry != "" {
+			contextBar += " " + expiry
+		}
+	}
 
 	// Usage bars.
 	// Aggregate 5h/7d bars come from stdin rate_limits (instant, no network).
 	// Per-model sub-bars and extra usage come from the usage API (when available).
 	var usage5h, usage7d, usageExtra string
-	now := time.Now()
 
 	// 5-hour bar from stdin.
 	if p.StdinRateLimits != nil && p.StdinRateLimits.FiveHour != nil &&
@@ -355,6 +371,37 @@ func ResetTimeUnix(ts *float64, now time.Time) string {
 		return local.Format("15:04")
 	}
 	return local.Format("Mon 15:04")
+}
+
+// CacheExpiry returns when the prompt cache goes cold: the clock time in
+// CacheExpiryTime mode (e.g. "⏳14:32"), or the minutes left in
+// CacheExpiryCountdown mode (e.g. "⏳12m"), shown throughout a ttl of 5m or
+// less and during the last quarter of a longer one.
+// Once cold, shows the expiry time or "0m" in red. Returns "" when expiresAt is nil.
+func CacheExpiry(mode string, expiresAt *int64, warm bool, ttl time.Duration, now time.Time) string {
+	if expiresAt == nil {
+		return ""
+	}
+	left := time.Unix(*expiresAt, 0).Sub(now)
+	cold := !warm || left <= 0
+	switch mode {
+	case CacheExpiryTime:
+		ts := float64(*expiresAt)
+		if cold {
+			return "⏳" + Red + ResetTimeUnix(&ts, now) + Reset
+		}
+		return "⏳" + ResetTimeUnix(&ts, now)
+	case CacheExpiryCountdown:
+		if cold {
+			return "⏳" + Red + "0m" + Reset
+		}
+		if ttl > 5*time.Minute && left > ttl/4 {
+			return ""
+		}
+		return fmt.Sprintf("⏳%dm", int(math.Ceil(left.Minutes())))
+	default:
+		return ""
+	}
 }
 
 // StatusIndicator returns a colored fire icon with severity bars for service disruptions.
