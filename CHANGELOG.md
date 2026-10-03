@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.25.0](https://github.com/fredrikaverpil/claudeline/compare/v0.24.2...v0.25.0) (2026-10-01)
+
+
+### Features
+
+* add -effort flag to show model effort level ([#128](https://github.com/fredrikaverpil/claudeline/issues/128)) ([02b14ab](https://github.com/fredrikaverpil/claudeline/commit/02b14ab48400ee689947f82eac0bd446d16eda5e))
+
+
+### Bug Fixes
+
+* bump Go to 1.27.1 and bump Pocket too ([#129](https://github.com/fredrikaverpil/claudeline/issues/129)) ([50452ab](https://github.com/fredrikaverpil/claudeline/commit/50452abc4ca93999bc05f43ee293134ec3f5ce54))
+
 ## [0.24.2](https://github.com/fredrikaverpil/claudeline/compare/v0.24.1...v0.24.2) (2026-05-23)
 
 
