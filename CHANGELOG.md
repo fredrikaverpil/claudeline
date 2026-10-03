@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/fredrikaverpil/claudeline/compare/v0.25.0...v0.26.0) (2026-10-03)
+
+
+### Features
+
+* detect prompt cache misses from prompt_cache ([#132](https://github.com/fredrikaverpil/claudeline/issues/132)) ([77795bd](https://github.com/fredrikaverpil/claudeline/commit/77795bdfd4074e8688cd17b4a1d533574fd170eb))
+
 ## [0.25.0](https://github.com/fredrikaverpil/claudeline/compare/v0.24.2...v0.25.0) (2026-10-01)
 
 
