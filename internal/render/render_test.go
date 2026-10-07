@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/fredrikaverpil/claudeline/internal/stdin"
 )
 
 func TestContextColorFunc(t *testing.T) {
@@ -759,6 +761,48 @@ func TestBuild_CacheMiss(t *testing.T) {
 			t.Errorf("Build() with CacheMiss=false should not contain 🥊, got %q", got)
 		}
 	})
+}
+
+func TestCacheIndicator(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(10000, 0)
+	cache := func(ttl string, left time.Duration) *stdin.PromptCache {
+		expiresAt := now.Add(left).Unix()
+		return &stdin.PromptCache{TTL: ttl, ExpiresAt: &expiresAt}
+	}
+
+	tests := []struct {
+		name string
+		miss bool
+		pc   *stdin.PromptCache
+		want string
+	}{
+		{name: "no prompt_cache", pc: nil, want: ""},
+		{name: "expires_at null", pc: &stdin.PromptCache{TTL: "1h"}, want: ""},
+		{name: "1h warm", pc: cache("1h", 16*time.Minute), want: ""},
+		{name: "1h last quarter", pc: cache("1h", 15*time.Minute), want: "🥊15m"},
+		{name: "1h rounds up", pc: cache("1h", 30*time.Second), want: "🥊1m"},
+		{name: "5m warm", pc: cache("5m", 2*time.Minute), want: ""},
+		{name: "5m last quarter", pc: cache("5m", 75*time.Second), want: "🥊2m"},
+		{name: "cold", pc: cache("1h", 0), want: "🥊"},
+		{name: "cold long ago", pc: cache("5m", -time.Hour), want: "🥊"},
+		{name: "malformed ttl", pc: cache("bogus", time.Minute), want: ""},
+		{name: "miss", miss: true, pc: cache("1h", time.Hour), want: "🥊"},
+		{name: "miss without prompt_cache", miss: true, pc: nil, want: "🥊"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := CacheIndicator(tt.miss, tt.pc, now)
+
+			if got != tt.want {
+				t.Errorf("CacheIndicator() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestCwdName(t *testing.T) {
