@@ -55,12 +55,15 @@ type Params struct {
 	Branch           string // current git branch name
 	BranchMaxLen     int
 	CacheMiss        bool
+	PromptCache      *stdin.PromptCache
 	ShowCost         bool
 	CostUSD          float64
 }
 
 // Build assembles the complete statusline string from all collected data.
 func Build(p Params) string {
+	now := time.Now()
+
 	// Identity.
 	identity := Identity(p.LoginType, p.Model)
 
@@ -77,15 +80,14 @@ func Build(p Params) string {
 	if p.Exceeds200kTokens {
 		contextBar += " 🥵"
 	}
-	if p.CacheMiss {
-		contextBar += " 🥊"
+	if glove := CacheIndicator(p.CacheMiss, p.PromptCache, now); glove != "" {
+		contextBar += " " + glove
 	}
 
 	// Usage bars.
 	// Aggregate 5h/7d bars come from stdin rate_limits (instant, no network).
 	// Per-model sub-bars and extra usage come from the usage API (when available).
 	var usage5h, usage7d, usageExtra string
-	now := time.Now()
 
 	// 5-hour bar from stdin.
 	if p.StdinRateLimits != nil && p.StdinRateLimits.FiveHour != nil &&
@@ -355,6 +357,26 @@ func ResetTimeUnix(ts *float64, now time.Time) string {
 		return local.Format("15:04")
 	}
 	return local.Format("Mon 15:04")
+}
+
+// CacheIndicator returns "🥊" when the latest request missed the prompt cache or the cache has gone cold,
+// "🥊<n>m" with the minutes left during the last quarter of the cache ttl, and "" otherwise.
+func CacheIndicator(miss bool, pc *stdin.PromptCache, now time.Time) string {
+	if miss {
+		return "🥊"
+	}
+	if pc == nil || pc.ExpiresAt == nil {
+		return ""
+	}
+	left := time.Unix(*pc.ExpiresAt, 0).Sub(now)
+	if left <= 0 {
+		return "🥊"
+	}
+	ttl, err := time.ParseDuration(pc.TTL)
+	if err != nil || left > ttl/4 {
+		return ""
+	}
+	return fmt.Sprintf("🥊%dm", int(math.Ceil(left.Minutes())))
 }
 
 // StatusIndicator returns a colored fire icon with severity bars for service disruptions.

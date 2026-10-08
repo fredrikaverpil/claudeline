@@ -28,7 +28,7 @@ bars. Written in Go with no external dependencies (stdlib only).
 | `⚠️`                 | Approaching auto-compaction threshold                                                                                                                                 |
 | `🥵`                 | Extended context (>200k tokens) — model quality may degrade                                                                                                           |
 | `🔥▂` `🔥▄▂` `🔥▆▄▂` | Anthropic service disruption (minor / major / critical)                                                                                                               |
-| `🥊`                 | [Prompt cache](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#how-prompt-caching-works) miss — this turn was not served from cache (costs more) |
+| `🥊` `🥊3m`          | [Prompt cache](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#how-prompt-caching-works) miss or cold (costs more), or minutes until it goes cold |
 | `↑`                  | New `claudeline` update available                                                                                                                                     |
 
 ## Installation
@@ -153,6 +153,24 @@ Key components:
   field. Expected rebuilds (compaction, tool-result clearing) don't count. With
   `-debug`, each miss logs its causes (e.g. `model_changed`), or `undiagnosed`
   when Claude Code gives none.
+- **Prompt cache expiry:** A `🥊` also appears once the prompt cache has gone
+  cold (past `prompt_cache.expires_at`), as the next request re-caches the
+  whole prompt. During the last quarter of the cache TTL (15 minutes of a `1h`
+  TTL), `🥊12m` shows the minutes left. The status line doesn't otherwise re-run
+  while idle, so set
+  [`refreshInterval`](https://code.claude.com/docs/en/statusline#manually-configure-a-status-line)
+  for the countdown to appear and tick:
+
+  ```json
+  {
+    "statusLine": {
+      "type": "command",
+      "command": "claudeline",
+      "refreshInterval": 30
+    }
+  }
+  ```
+
 - **Update check:** Fetches
   `https://api.github.com/repos/fredrikaverpil/claudeline/releases/latest`
   (GitHub API, no auth required). Release tag is cached in
