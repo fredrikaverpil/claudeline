@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/fredrikaverpil/claudeline/compare/v0.26.0...v0.27.0) (2026-10-08)
+
+
+### Features
+
+* warn before the prompt cache goes cold ([#137](https://github.com/fredrikaverpil/claudeline/issues/137)) ([56cf66f](https://github.com/fredrikaverpil/claudeline/commit/56cf66f53223ca126a4423377604ec2bf3c02505))
+
 ## [0.26.0](https://github.com/fredrikaverpil/claudeline/compare/v0.25.0...v0.26.0) (2026-10-03)
 
 
