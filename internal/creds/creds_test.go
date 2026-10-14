@@ -54,7 +54,7 @@ func TestCredentialsSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(files) == 0 {
-		t.Skip("no testdata/creds_*.json files found — run ./pok capture to generate")
+		t.Skip("no testdata/creds_*.json files found — run `mise run capture` to generate")
 	}
 
 	for _, file := range files {

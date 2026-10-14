@@ -205,9 +205,19 @@ Key components:
 
 ## Development
 
-This project uses [Pocket](https://github.com/fredrikaverpil/pocket), a
-Makefile-like task runner. Run `./pok` to execute linting, formatting, and
+This project uses [mise](https://mise.jdx.dev) to run linting, formatting, and
 tests.
+
+```sh
+# List tasks
+mise tasks
+
+# Run task
+mise run <task>
+
+# Run all checks
+mise run all
+```
 
 ### Capturing and rendering
 
@@ -215,15 +225,15 @@ Claudeline can be tested fully offline using a two-step workflow:
 
 1. **Capture** (requires credentials + network): Start Claude Code with
    `claudeline -debug`, make sure claudeline shows up. In a new terminal, run
-   `./pok capture` (or `./pok capture -config-dir ~/.claude-work` for a custom
-   profile). This reads credentials, calls the usage and status APIs, and writes
+   `mise run capture` (or `mise run capture --config-dir ~/.claude-work` for a
+   custom profile). This reads credentials, calls the usage and status APIs, and writes
    the responses to testdata files under `internal/stdin/testdata/`,
    `internal/creds/testdata/`, `internal/usage/testdata/`,
    `internal/status/testdata/`, and `internal/update/testdata/`.
-2. **Render** (100% offline): Run `./pok render` to render the statusline from
-   the captured files. No credentials or network access needed. Use
-   `./pok render -json internal/stdin/testdata/stdin_pro_opus.json` to render a
-   specific stdin payload.
+2. **Render** (100% offline): Run `mise run render` to render the statusline
+   from the captured files. No credentials or network access needed. Use
+   `mise run render --json internal/stdin/testdata/stdin_pro_opus.json` to
+   render a specific stdin payload.
 
 ### Stdin payload schema
 
@@ -232,7 +242,7 @@ The `internal/stdin/testdata/stdin_*.json` files are named as
 comprehensive `payload` struct in `internal/stdin/stdin_test.go` maps every
 known field. The `TestPayloadSchema` test uses `DisallowUnknownFields` to detect
 when Claude Code adds new fields — if the test fails, update the `payload`
-struct and re-run `./pok capture` to refresh the testdata.
+struct and re-run `mise run capture` to refresh the testdata.
 
 ### Credentials schema
 
@@ -241,7 +251,7 @@ Claude Code's OAuth credentials (tokens replaced with `"sanitized"`). A
 `credentials` struct in `internal/creds/creds_test.go` maps every known field.
 The `TestCredentialsSchema` test uses `DisallowUnknownFields` to detect schema
 changes — if the test fails, update the `credentials` struct and re-run
-`./pok capture` to refresh the testdata.
+`mise run capture` to refresh the testdata.
 
 ### Usage API schema
 
@@ -250,7 +260,7 @@ usage API response (`api.anthropic.com/api/oauth/usage`), named as
 `usage_<plan>.json`. A `usageResponse` struct in `internal/usage/usage_test.go`
 maps every known field. The `TestUsageResponseSchema` test uses
 `DisallowUnknownFields` to detect schema changes — if the test fails, update the
-`usageResponse` struct and re-run `./pok capture` to refresh the testdata.
+`usageResponse` struct and re-run `mise run capture` to refresh the testdata.
 
 ### Status API schema
 
@@ -259,7 +269,7 @@ Statuspage API response (`status.claude.com/api/v2/status.json`). A
 `statusResponse` struct in `internal/status/status_test.go` maps every known
 field. The `TestStatusResponseSchema` test uses `DisallowUnknownFields` to
 detect schema changes — if the test fails, update the `statusResponse` struct
-and re-run `./pok capture` to refresh the testdata.
+and re-run `mise run capture` to refresh the testdata.
 
 ## References
 
