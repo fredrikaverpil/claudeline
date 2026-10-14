@@ -1,0 +1,156 @@
+version: "2"
+
+run:
+  build-tags:
+    - wireinject
+  relative-path-mode: gitroot
+
+issues:
+  fix: true
+
+linters:
+  default: none
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exptostd
+    # NOTE: pocket relies on global variables
+    # - gochecknoglobals
+    - gochecknoinits
+    - gocritic
+    - godot
+    - gomoddirectives
+    - gomodguard_v2
+    - goprintffuncname
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nilerr
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - protogetter
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - tparallel
+    - unconvert
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+  settings:
+    errorlint:
+      errorf: false
+
+    gomoddirectives:
+      replace-local: true
+
+    gomodguard_v2:
+      blocked:
+        - module: github.com/sirupsen/logrus
+          recommendations:
+            - log/slog
+          reason: Use the standard library logging packages.
+        - module: github.com/rs/zerolog
+          recommendations:
+            - log/slog
+          reason: Use the standard library logging packages.
+        - module: go.uber.org/zap
+          recommendations:
+            - log/slog
+          reason: Use the standard library logging packages.
+        - module: github.com/pkg/errors
+          recommendations:
+            - errors
+            - fmt
+          reason: Use the standard library error packages.
+        - module: golang.org/x/xerrors
+          recommendations:
+            - errors
+            - fmt
+          reason: Use the standard library error packages.
+        - module: github.com/golang/protobuf
+          recommendations:
+            - google.golang.org/protobuf
+          reason: The protobuf v1 module is deprecated.
+        - module: github.com/stretchr/testify
+          recommendations:
+            - gotest.tools/v3
+          reason: More reliably supports protobuf messages.
+
+    gosec:
+      excludes:
+        # Flags for potentially-unsafe casting of ints.
+        - G115
+        # WriteFile permissions - we generate config files that should be readable.
+        - G306
+        # Archive extraction - we only extract from trusted GitHub releases.
+        - G305
+        # Decompression bomb - we only extract from trusted GitHub releases.
+        - G110
+
+    lll:
+      line-length: 120
+      tab-width: 1
+
+    misspell:
+      locale: US
+      ignore-rules:
+        - cancelled
+        - cancelling
+        - analyses
+
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+
+    protogetter:
+      skip-any-generated: true
+
+    staticcheck:
+      checks:
+        - all
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+
+formatters:
+  enable:
+    - gci
+    - goimports
+    - gofumpt
+    - golines
+
+  settings:
+    gofumpt:
+      extra-rules: true
+    golines:
+      max-len: 120
+
+  exclusions:
+    generated: lax

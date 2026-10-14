@@ -1,0 +1,67 @@
+[tools]
+go = "1.27.2"
+golangci-lint = "2.14.0"
+"go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
+
+[tasks.fix]
+description = "Update code for newer Go versions"
+run = "go fix ./..."
+
+[tasks.format]
+description = "Format Go files"
+run = "golangci-lint fmt ./..."
+
+[tasks.lint]
+description = "Lint Go files, with fixes"
+run = "golangci-lint run --fix ./..."
+
+[tasks.test]
+description = "Run tests"
+run = "go test -race ./..."
+
+[tasks.vulncheck]
+description = "Check for known vulnerabilities"
+run = "govulncheck ./..."
+
+[tasks.capture]
+description = "Save latest stdin snapshot and API responses as testdata"
+usage = 'flag "--config-dir <dir>" help="Claude config directory, e.g. ~/.claude-work" default="~/.claude"'
+run = 'go run ./scripts/capture -config-dir "$usage_config_dir"'
+
+[tasks.render]
+description = "Render statusline from testdata stdin payloads"
+usage = '''
+flag "--json <file>" help="Path to a specific stdin testdata JSON file"
+flag "--usage-file <file>" help="Fallback usage testdata JSON file" default="internal/usage/testdata/usage_pro.json"
+flag "--status-file <file>" help="Status testdata JSON file" default="internal/status/testdata/status.json"
+flag "--update-file <file>" help="Update testdata JSON file" default="internal/update/testdata/release.json"
+'''
+run = '''
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+go build -o "$tmp/claudeline" .
+if [ -n "${usage_json:-}" ]; then
+  set -- "$usage_json"
+else
+  set -- internal/stdin/testdata/stdin_*.json
+fi
+for f in "$@"; do
+  name=$(basename "$f")
+  echo ":: $name"
+  # Prefer the plan-specific usage file, e.g. usage_pro.json for stdin_pro_opus.json.
+  plan=$(echo "$name" | sed 's/^stdin_//; s/[_.].*//')
+  usage="internal/usage/testdata/usage_$plan.json"
+  [ -f "$usage" ] || usage="$usage_usage_file"
+  "$tmp/claudeline" -status-file "$usage_status_file" -usage-file "$usage" -update-file "$usage_update_file" < "$f"
+  echo
+done
+'''
+
+[tasks.all]
+description = "Run all checks"
+run = [
+  { task = "fix" },
+  { task = "format" },
+  { task = "lint" },
+  { tasks = ["test", "vulncheck"] },
+]
