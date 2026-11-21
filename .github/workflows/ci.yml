@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: ${{ matrix.task }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [go:test, go:vulncheck]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - { task: go:fix, os: ubuntu-latest }
+          - { task: go:format, os: ubuntu-latest }
+          - { task: go:lint, os: ubuntu-latest }
+          - { task: md:lint, os: ubuntu-latest }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: mise run ${{ matrix.task }}
+      - run: git diff --exit-code

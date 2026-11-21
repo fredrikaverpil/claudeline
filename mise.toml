@@ -1,0 +1,86 @@
+[settings]
+lockfile = true
+minimum_release_age = "3d"
+
+[tools]
+go = "1.27.4"
+golangci-lint = "2.14.0"
+goreleaser = "2.20.2"
+rumdl = "0.2.52"
+"go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
+
+# Go
+
+[tasks."go:fix"]
+description = "Update Go code for newer Go versions"
+run = "go fix ./..."
+
+[tasks."go:format"]
+description = "Format Go code"
+run = "golangci-lint fmt ./..."
+
+[tasks."go:lint"]
+description = "Lint Go code, with fixes"
+run = "golangci-lint run --fix ./..."
+
+[tasks."go:test"]
+description = "Run tests"
+run = ["go version", "go test -race ./..."]
+env = { CGO_ENABLED = "1" }
+
+[tasks."go:vulncheck"]
+description = "Check for known vulnerabilities"
+run = "govulncheck ./..."
+
+# Markdown
+
+[tasks."md:lint"]
+description = "Lint Markdown files, with fixes"
+run = "rumdl check --fix ."
+
+# Testdata
+
+[tasks."testdata:capture"]
+description = "Save latest stdin snapshot and API responses as testdata"
+usage = 'flag "--config-dir <dir>" help="Claude config directory, e.g. ~/.claude-work" default="~/.claude"'
+run = 'go run ./scripts/capture -config-dir "$usage_config_dir"'
+
+[tasks."testdata:render"]
+description = "Render statusline from testdata stdin payloads"
+usage = '''
+flag "--json <file>" help="Path to a specific stdin testdata JSON file"
+flag "--usage-file <file>" help="Fallback usage testdata JSON file" default="internal/usage/testdata/usage_pro.json"
+flag "--status-file <file>" help="Status testdata JSON file" default="internal/status/testdata/status.json"
+flag "--update-file <file>" help="Update testdata JSON file" default="internal/update/testdata/release.json"
+'''
+run = '''
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+go build -o "$tmp/claudeline" .
+if [ -n "${usage_json:-}" ]; then
+  set -- "$usage_json"
+else
+  set -- internal/stdin/testdata/stdin_*.json
+fi
+for f in "$@"; do
+  name=$(basename "$f")
+  echo ":: $name"
+  # Prefer the plan-specific usage file, e.g. usage_pro.json for stdin_pro_opus.json.
+  plan=$(echo "$name" | sed 's/^stdin_//; s/[_.].*//')
+  usage="internal/usage/testdata/usage_$plan.json"
+  [ -f "$usage" ] || usage="$usage_usage_file"
+  "$tmp/claudeline" -status-file "$usage_status_file" -usage-file "$usage" -update-file "$usage_update_file" < "$f"
+  echo
+done
+'''
+
+# Tasks that write files run one at a time; read-only checks in parallel.
+[tasks.default]
+description = "Run all checks"
+run = [
+  { task = "go:fix" },
+  { task = "go:format" },
+  { task = "md:lint" },
+  { task = "go:lint" },
+  { tasks = ["go:test", "go:vulncheck"] },
+]
