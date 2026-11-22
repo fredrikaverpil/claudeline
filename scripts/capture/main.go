@@ -1,116 +1,12 @@
-package main
-
-import (
-	"context"
-	"crypto/sha256"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
-
-	"github.com/fredrikaverpil/pocket/pk"
-	"github.com/fredrikaverpil/pocket/pk/repopath"
-	"github.com/fredrikaverpil/pocket/pk/run"
-)
-
-// RenderFlags holds flags for the Render task.
-type RenderFlags struct {
-	JSON       string `flag:"json"        usage:"path to a specific testdata JSON file"`
-	UsageFile  string `flag:"usage-file"  usage:"path to usage testdata JSON file"`
-	StatusFile string `flag:"status-file" usage:"path to status testdata JSON file"`
-	UpdateFile string `flag:"update-file" usage:"path to update testdata JSON file"`
-}
-
-// Render runs testdata payloads through claudeline for manual inspection.
-// With -json, renders a single file. Without it, renders all testdata/stdin_*.json files.
-var Render = &pk.Task{
-	Name:  "render",
-	Usage: "render statusline from testdata stdin payloads",
-	Flags: RenderFlags{
-		UsageFile:  "internal/usage/testdata/usage_pro.json",
-		StatusFile: "internal/status/testdata/status.json",
-		UpdateFile: "internal/update/testdata/release.json",
-	},
-	Do: func(ctx context.Context) error {
-		flags := run.GetFlags[RenderFlags](ctx)
-		dir := repopath.FromGitRoot("")
-
-		var files []string
-		if flags.JSON != "" {
-			files = []string{flags.JSON}
-		} else {
-			var err error
-			files, err = filepath.Glob(filepath.Join(dir, "internal", "stdin", "testdata", "stdin_*.json"))
-			if err != nil {
-				return fmt.Errorf("glob testdata: %w", err)
-			}
-			if len(files) == 0 {
-				return fmt.Errorf("no internal/stdin/testdata/stdin_*.json files found")
-			}
-		}
-
-		// Build once, then reuse the binary for each render.
-		bin := filepath.Join(dir, ".pocket", "claudeline-render")
-		buildCmd := exec.CommandContext(ctx, "go", "build", "-o", bin, ".")
-		buildCmd.Dir = dir
-		buildCmd.Stdout = os.Stdout
-		buildCmd.Stderr = os.Stderr
-		if err := buildCmd.Run(); err != nil {
-			return fmt.Errorf("build: %w", err)
-		}
-		defer os.Remove(bin)
-
-		for _, f := range files {
-			run.Printf(ctx, ":: %s\n", filepath.Base(f))
-
-			// Use captured testdata files so render is fully offline.
-			// Try plan-specific usage file first, fall back to the flag default.
-			statusFile := filepath.Join(dir, flags.StatusFile)
-			plan := extractPlanFromFilename(filepath.Base(f))
-			usageFile := filepath.Join(dir, "internal", "usage", "testdata", "usage_"+plan+".json")
-			if _, err := os.Stat(usageFile); err != nil {
-				usageFile = filepath.Join(dir, flags.UsageFile)
-			}
-			updateFile := filepath.Join(dir, flags.UpdateFile)
-			args := fmt.Sprintf(
-				"cat %s | %s -status-file %s -usage-file %s -update-file %s",
-				f,
-				bin,
-				statusFile,
-				usageFile,
-				updateFile,
-			)
-
-			cmd := exec.CommandContext(ctx, "sh", "-c", args)
-			cmd.Dir = dir
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-			fmt.Println()
-		}
-		return nil
-	},
-}
-
-// CaptureFlags holds flags for the Capture task.
-type CaptureFlags struct {
-	ConfigDir string `flag:"config-dir" usage:"Claude config directory (e.g. ~/.claude-work)"`
-}
-
-// Capture reads the latest stdin snapshot from a profile and saves it as a testdata file.
+// Capture reads the latest stdin snapshot from a profile and saves it as a
+// testdata file.
 //
 // The config-dir flag determines which profile to capture from:
 //   - Default (~/.claude): stdin at /tmp/claudeline/stdin.json
 //   - Custom (e.g. ~/.claude-work): stdin with a hash suffix,
 //     e.g. /tmp/claudeline/stdin-fbb791ba.json
 //
-// For each profile, the task:
+// For each profile, it:
 //  1. Reads the stdin snapshot (written by claudeline -debug on each render)
 //  2. Resolves the subscription plan from the profile's credentials (Keychain → file fallback)
 //  3. Parses the model from the payload
@@ -119,187 +15,208 @@ type CaptureFlags struct {
 //
 // Prerequisites: claudeline must be running with -debug enabled for the profile
 // you want to capture.
-var Capture = &pk.Task{
-	Name:  "capture",
-	Usage: "save latest stdin snapshot as testdata",
-	Flags: CaptureFlags{ConfigDir: "~/.claude"},
-	Do: func(ctx context.Context) error {
-		flags := run.GetFlags[CaptureFlags](ctx)
-		dir := repopath.FromGitRoot("")
+package main
 
-		// Expand ~ in the config dir path.
-		configDir := expandHome(flags.ConfigDir)
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+)
 
-		// Determine the file suffix. The default ~/.claude profile
-		// has no CLAUDE_CONFIG_DIR set, so it uses no suffix.
-		var suffix string
-		defaultDir := filepath.Join(mustUserHomeDir(), ".claude")
-		if configDir != defaultDir {
-			h := sha256.Sum256([]byte(configDir))
-			suffix = fmt.Sprintf("-%x", h[:4])
-		}
+func main() {
+	configDir := flag.String("config-dir", "~/.claude", "Claude config directory (e.g. ~/.claude-work)")
+	flag.Parse()
+	if err := capture(context.Background(), *configDir); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
 
-		// Read the stdin snapshot written by claudeline -debug.
-		stdinPath := filepath.Join(claudelineCacheDir(), "stdin"+suffix+".json")
-		rawJSONBytes, err := os.ReadFile(stdinPath)
+func capture(ctx context.Context, configDirFlag string) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working dir: %w", err)
+	}
+
+	// Expand ~ in the config dir path.
+	configDir := expandHome(configDirFlag)
+
+	// Determine the file suffix. The default ~/.claude profile
+	// has no CLAUDE_CONFIG_DIR set, so it uses no suffix.
+	var suffix string
+	defaultDir := filepath.Join(mustUserHomeDir(), ".claude")
+	if configDir != defaultDir {
+		h := sha256.Sum256([]byte(configDir))
+		suffix = fmt.Sprintf("-%x", h[:4])
+	}
+
+	// Read the stdin snapshot written by claudeline -debug.
+	stdinPath := filepath.Join(claudelineCacheDir(), "stdin"+suffix+".json")
+	rawJSONBytes, err := os.ReadFile(stdinPath)
+	if err != nil {
+		return fmt.Errorf("read stdin snapshot %s: %w — run claudeline with -debug first", stdinPath, err)
+	}
+	rawJSON := string(rawJSONBytes)
+
+	// Parse model.
+	var payload struct {
+		Model struct {
+			ID string `json:"id"`
+		} `json:"model"`
+	}
+	if err := json.Unmarshal([]byte(rawJSON), &payload); err != nil {
+		return fmt.Errorf("parse stdin JSON: %w", err)
+	}
+
+	// Determine the name prefix: provider (if detected) or subscription plan.
+	var namePrefix string
+	if provider := detectProvider(); provider != "" {
+		namePrefix = provider
+	} else {
+		plan, err := resolvePlanName(ctx, configDir)
 		if err != nil {
-			return fmt.Errorf("read stdin snapshot %s: %w — run claudeline with -debug first", stdinPath, err)
-		}
-		rawJSON := string(rawJSONBytes)
-
-		// Parse model.
-		var payload struct {
-			Model struct {
-				ID string `json:"id"`
-			} `json:"model"`
-		}
-		if err := json.Unmarshal([]byte(rawJSON), &payload); err != nil {
-			return fmt.Errorf("parse stdin JSON: %w", err)
-		}
-
-		// Determine the name prefix: provider (if detected) or subscription plan.
-		var namePrefix string
-		if provider := detectProvider(); provider != "" {
-			namePrefix = provider
+			// No OAuth credentials found — likely API key usage without the
+			// env var set in this shell. Fall back to "api" as the prefix.
+			fmt.Printf("warning: could not resolve subscription plan: %v — assuming API/provider usage\n", err)
+			namePrefix = "api"
 		} else {
-			plan, err := resolvePlanName(ctx, configDir)
-			if err != nil {
-				// No OAuth credentials found — likely API key usage without the
-				// env var set in this shell. Fall back to "api" as the prefix.
-				run.Printf(ctx, "warning: could not resolve subscription plan: %v — assuming API/provider usage\n", err)
-				namePrefix = "api"
-			} else {
-				namePrefix = plan
-			}
+			namePrefix = plan
 		}
+	}
 
-		// Sanitize and pretty-print.
-		var m map[string]any
-		if err := json.Unmarshal([]byte(rawJSON), &m); err != nil {
-			return fmt.Errorf("parse JSON: %w", err)
+	// Sanitize and pretty-print.
+	var m map[string]any
+	if err := json.Unmarshal([]byte(rawJSON), &m); err != nil {
+		return fmt.Errorf("parse JSON: %w", err)
+	}
+	sanitizePayload(m)
+	formatted, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return fmt.Errorf("format JSON: %w", err)
+	}
+
+	model := modelShortName(payload.Model.ID)
+	filename := fmt.Sprintf("stdin_%s_%s.json", namePrefix, model)
+	stdinTestdata := filepath.Join(dir, "internal", "stdin", "testdata")
+	outPath := filepath.Join(stdinTestdata, filename)
+	if err := os.MkdirAll(stdinTestdata, 0o755); err != nil {
+		return fmt.Errorf("create testdata dir: %w", err)
+	}
+	if err := os.WriteFile(outPath, append(formatted, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write testdata: %w", err)
+	}
+
+	fmt.Printf("saved %s\n", outPath)
+
+	// Also capture sanitized credentials and extract access token for usage capture.
+	var accessToken string
+	credsJSON, credsErr := readCredentials(ctx, configDir)
+	switch {
+	case credsErr == nil:
+		// Extract access token before sanitization replaces it.
+		if oauth, ok := credsJSON["claudeAiOauth"].(map[string]any); ok {
+			accessToken, _ = oauth["accessToken"].(string)
 		}
-		sanitizePayload(m)
-		formatted, err := json.MarshalIndent(m, "", "  ")
+		sanitizeCredentials(credsJSON)
+		formattedCreds, err := json.MarshalIndent(credsJSON, "", "  ")
 		if err != nil {
-			return fmt.Errorf("format JSON: %w", err)
+			return fmt.Errorf("format credentials JSON: %w", err)
 		}
-
-		model := modelShortName(payload.Model.ID)
-		filename := fmt.Sprintf("stdin_%s_%s.json", namePrefix, model)
-		stdinTestdata := filepath.Join(dir, "internal", "stdin", "testdata")
-		outPath := filepath.Join(stdinTestdata, filename)
-		if err := os.MkdirAll(stdinTestdata, 0o755); err != nil {
-			return fmt.Errorf("create testdata dir: %w", err)
+		credsFile := fmt.Sprintf("creds_%s.json", namePrefix)
+		credsTestdata := filepath.Join(dir, "internal", "creds", "testdata")
+		if err := os.MkdirAll(credsTestdata, 0o755); err != nil {
+			return fmt.Errorf("create creds testdata dir: %w", err)
 		}
-		if err := os.WriteFile(outPath, append(formatted, '\n'), 0o644); err != nil {
-			return fmt.Errorf("write testdata: %w", err)
+		credsPath := filepath.Join(credsTestdata, credsFile)
+		if err := os.WriteFile(credsPath, append(formattedCreds, '\n'), 0o644); err != nil {
+			return fmt.Errorf("write credentials testdata: %w", err)
 		}
+		fmt.Printf("saved %s\n", credsPath)
+	case detectProvider() != "":
+		// Provider users (API key, Bedrock, Vertex, Foundry) have no OAuth credentials — expected, nothing to capture.
+	default:
+		fmt.Printf("skipping credentials capture: %v\n", credsErr)
+	}
 
-		run.Printf(ctx, "saved %s\n", outPath)
-
-		// Also capture sanitized credentials and extract access token for usage capture.
-		var accessToken string
-		credsJSON, credsErr := readCredentials(ctx, configDir)
-		switch {
-		case credsErr == nil:
-			// Extract access token before sanitization replaces it.
-			if oauth, ok := credsJSON["claudeAiOauth"].(map[string]any); ok {
-				accessToken, _ = oauth["accessToken"].(string)
-			}
-			sanitizeCredentials(credsJSON)
-			formattedCreds, err := json.MarshalIndent(credsJSON, "", "  ")
+	// Also capture usage API response. API key users have no OAuth token for
+	// the usage endpoint — skip silently.
+	if accessToken != "" {
+		usageJSON, usageErr := fetchUsageJSON(ctx, accessToken)
+		if usageErr != nil {
+			fmt.Printf("skipping usage capture: %v\n", usageErr)
+		} else {
+			formattedUsage, err := json.MarshalIndent(usageJSON, "", "  ")
 			if err != nil {
-				return fmt.Errorf("format credentials JSON: %w", err)
+				return fmt.Errorf("format usage JSON: %w", err)
 			}
-			credsFile := fmt.Sprintf("creds_%s.json", namePrefix)
-			credsTestdata := filepath.Join(dir, "internal", "creds", "testdata")
-			if err := os.MkdirAll(credsTestdata, 0o755); err != nil {
-				return fmt.Errorf("create creds testdata dir: %w", err)
+			usageTestdata := filepath.Join(dir, "internal", "usage", "testdata")
+			if err := os.MkdirAll(usageTestdata, 0o755); err != nil {
+				return fmt.Errorf("create usage testdata dir: %w", err)
 			}
-			credsPath := filepath.Join(credsTestdata, credsFile)
-			if err := os.WriteFile(credsPath, append(formattedCreds, '\n'), 0o644); err != nil {
-				return fmt.Errorf("write credentials testdata: %w", err)
+			usageFile := fmt.Sprintf("usage_%s.json", namePrefix)
+			usagePath := filepath.Join(usageTestdata, usageFile)
+			if err := os.WriteFile(usagePath, append(formattedUsage, '\n'), 0o644); err != nil {
+				return fmt.Errorf("write usage testdata: %w", err)
 			}
-			run.Printf(ctx, "saved %s\n", credsPath)
-		case detectProvider() != "":
-			// Provider users (API key, Bedrock, Vertex, Foundry) have no OAuth credentials — expected, nothing to capture.
-		default:
-			run.Printf(ctx, "skipping credentials capture: %v\n", credsErr)
+			fmt.Printf("saved %s\n", usagePath)
 		}
+	}
 
-		// Also capture usage API response.
-		if accessToken == "" {
-			// API key users have no OAuth token for the usage endpoint — skip silently.
-		} else {
-			usageJSON, usageErr := fetchUsageJSON(ctx, accessToken)
-			if usageErr != nil {
-				run.Printf(ctx, "skipping usage capture: %v\n", usageErr)
-			} else {
-				formattedUsage, err := json.MarshalIndent(usageJSON, "", "  ")
-				if err != nil {
-					return fmt.Errorf("format usage JSON: %w", err)
-				}
-				usageTestdata := filepath.Join(dir, "internal", "usage", "testdata")
-				if err := os.MkdirAll(usageTestdata, 0o755); err != nil {
-					return fmt.Errorf("create usage testdata dir: %w", err)
-				}
-				usageFile := fmt.Sprintf("usage_%s.json", namePrefix)
-				usagePath := filepath.Join(usageTestdata, usageFile)
-				if err := os.WriteFile(usagePath, append(formattedUsage, '\n'), 0o644); err != nil {
-					return fmt.Errorf("write usage testdata: %w", err)
-				}
-				run.Printf(ctx, "saved %s\n", usagePath)
-			}
+	// Also capture status API response.
+	statusJSON, statusErr := fetchStatusJSON(ctx)
+	if statusErr != nil {
+		fmt.Printf("skipping status capture: %v\n", statusErr)
+	} else {
+		formattedStatus, err := json.MarshalIndent(statusJSON, "", "  ")
+		if err != nil {
+			return fmt.Errorf("format status JSON: %w", err)
 		}
+		statusTestdata := filepath.Join(dir, "internal", "status", "testdata")
+		if err := os.MkdirAll(statusTestdata, 0o755); err != nil {
+			return fmt.Errorf("create status testdata dir: %w", err)
+		}
+		statusPath := filepath.Join(statusTestdata, "status.json")
+		if err := os.WriteFile(statusPath, append(formattedStatus, '\n'), 0o644); err != nil {
+			return fmt.Errorf("write status testdata: %w", err)
+		}
+		fmt.Printf("saved %s\n", statusPath)
+	}
 
-		// Also capture status API response.
-		statusJSON, statusErr := fetchStatusJSON(ctx)
-		if statusErr != nil {
-			run.Printf(ctx, "skipping status capture: %v\n", statusErr)
+	// Also capture GitHub release tag.
+	releaseJSON, releaseErr := fetchReleaseJSON(ctx)
+	if releaseErr != nil {
+		fmt.Printf("skipping release capture: %v\n", releaseErr)
+	} else {
+		tagName, _ := releaseJSON["tag_name"].(string)
+		if tagName == "" {
+			fmt.Printf("skipping release capture: no tag_name in response\n")
 		} else {
-			formattedStatus, err := json.MarshalIndent(statusJSON, "", "  ")
+			minimal := map[string]string{"tag_name": tagName}
+			formattedRelease, err := json.MarshalIndent(minimal, "", "  ")
 			if err != nil {
-				return fmt.Errorf("format status JSON: %w", err)
+				return fmt.Errorf("format release JSON: %w", err)
 			}
-			statusTestdata := filepath.Join(dir, "internal", "status", "testdata")
-			if err := os.MkdirAll(statusTestdata, 0o755); err != nil {
-				return fmt.Errorf("create status testdata dir: %w", err)
+			releaseTestdata := filepath.Join(dir, "internal", "update", "testdata")
+			if err := os.MkdirAll(releaseTestdata, 0o755); err != nil {
+				return fmt.Errorf("create release testdata dir: %w", err)
 			}
-			statusPath := filepath.Join(statusTestdata, "status.json")
-			if err := os.WriteFile(statusPath, append(formattedStatus, '\n'), 0o644); err != nil {
-				return fmt.Errorf("write status testdata: %w", err)
+			releasePath := filepath.Join(releaseTestdata, "release.json")
+			if err := os.WriteFile(releasePath, append(formattedRelease, '\n'), 0o644); err != nil {
+				return fmt.Errorf("write release testdata: %w", err)
 			}
-			run.Printf(ctx, "saved %s\n", statusPath)
+			fmt.Printf("saved %s\n", releasePath)
 		}
+	}
 
-		// Also capture GitHub release tag.
-		releaseJSON, releaseErr := fetchReleaseJSON(ctx)
-		if releaseErr != nil {
-			run.Printf(ctx, "skipping release capture: %v\n", releaseErr)
-		} else {
-			tagName, _ := releaseJSON["tag_name"].(string)
-			if tagName == "" {
-				run.Printf(ctx, "skipping release capture: no tag_name in response\n")
-			} else {
-				minimal := map[string]string{"tag_name": tagName}
-				formattedRelease, err := json.MarshalIndent(minimal, "", "  ")
-				if err != nil {
-					return fmt.Errorf("format release JSON: %w", err)
-				}
-				releaseTestdata := filepath.Join(dir, "internal", "update", "testdata")
-				if err := os.MkdirAll(releaseTestdata, 0o755); err != nil {
-					return fmt.Errorf("create release testdata dir: %w", err)
-				}
-				releasePath := filepath.Join(releaseTestdata, "release.json")
-				if err := os.WriteFile(releasePath, append(formattedRelease, '\n'), 0o644); err != nil {
-					return fmt.Errorf("write release testdata: %w", err)
-				}
-				run.Printf(ctx, "saved %s\n", releasePath)
-			}
-		}
-
-		return nil
-	},
+	return nil
 }
 
 // expandHome replaces a leading ~ with the user's home directory.
@@ -562,7 +479,7 @@ func fetchUsageJSON(ctx context.Context, token string) (map[string]any, error) {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 	var m map[string]any
@@ -570,18 +487,6 @@ func fetchUsageJSON(ctx context.Context, token string) (map[string]any, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return m, nil
-}
-
-// extractPlanFromFilename extracts the plan name from a stdin testdata filename.
-// e.g. "stdin_pro_opus.json" → "pro".
-func extractPlanFromFilename(name string) string {
-	name = strings.TrimPrefix(name, "stdin_")
-	name = strings.TrimSuffix(name, ".json")
-	parts := strings.SplitN(name, "_", 2)
-	if len(parts) >= 1 {
-		return parts[0]
-	}
-	return ""
 }
 
 // fetchStatusJSON fetches the status API response as a generic map.
@@ -599,7 +504,7 @@ func fetchStatusJSON(ctx context.Context) (map[string]any, error) {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 	var m map[string]any
@@ -626,7 +531,7 @@ func fetchReleaseJSON(ctx context.Context) (map[string]any, error) {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 	var m map[string]any
