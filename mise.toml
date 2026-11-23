@@ -8,6 +8,7 @@ golangci-lint = "2.14.0"
 goreleaser = "2.20.2"
 rumdl = "0.2.52"
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
+"aqua:zizmorcore/zizmor" = "1.32.0"
 
 # Go
 
@@ -37,6 +38,12 @@ run = "govulncheck ./..."
 [tasks."md:lint"]
 description = "Lint Markdown files, with fixes"
 run = "rumdl check --fix ."
+
+# GitHub Actions
+
+[tasks."actions:lint"]
+description = "Audit GitHub Actions workflows"
+run = "zizmor --offline ."
 
 # Testdata
 
@@ -113,5 +120,5 @@ run = [
   { task = "go:format" },
   { task = "md:lint" },
   { task = "go:lint" },
-  { tasks = ["go:test", "go:vulncheck"] },
+  { tasks = ["go:test", "go:vulncheck", "actions:lint"] },
 ]
